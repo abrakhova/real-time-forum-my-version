@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Åland Real-Time Forum</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <nav class="navbar">
+        <div class="nav-content">
+          <div class="logo">
+            <img src="/static/aland-flag.png" alt="Logo"/>
+            <a class="logo-text" href="/">Åland Forum</a>
+          </div>
+          <div class="nav-actions">
+            <button class="new-post" id="new-post">New Post</button>
+              {{if .SessionCookie}}
+              <a href="/profile-page" class="pill-button">Profile</a>
+              <a href="/about" class="pill-button">About</a>
+              <a id="logout-btn" href="javascript:void(0);" class="pill-button">Log out</a>
+              {{else}}
+              <a href="/login" class="pill-button">Log in</a>
+              <a href="/register" class="pill-button">Register</a>
+              <a href="/about" class="pill-button">About</a>
+              {{end}}
+          </div>
+        </div>
+      </nav>
+    </header>
+<div class="container">
+  <div id="loginForm">
+    <input id="login-identifier" placeholder="Nickname or Email" />
+    <input id="login-password" type="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+    <a href="#" class ="pill-button" onclick="toggleView(); return false;">Don't have an account? Register</a>
+  </div>
+
+  <div id="registerForm" style="display:none">
+    <input id="reg-nickname" placeholder="Nickname" />
+    <input id="reg-email" placeholder="Email" />
+    <input id="reg-password" type="password" placeholder="Password" />
+    <input id="reg-first-name" placeholder="First Name" />
+    <input id="reg-last-name" placeholder="Last Name" />
+    <input id="reg-gender" placeholder="Gender" />
+    <input id="reg-age" placeholder="Age" />
+    <button onclick="register()">Register</button>
+    <p onclick="toggleView()">Already have an account? Login</p>
+  </div>
+</div>
+
+  <!-- Posts will be rendered here -->
+  <div id="postContainer"></div>
+</div>
+
+<div id="forum" style="display:none">
+  <h2>Welcome to the Forum</h2>
+  <button onclick="logout()">Logout</button>
+  
+  <div id="postForm">
+    <input id="post-title" placeholder="Post Title" />
+    <textarea id="post-content" placeholder="Write your post..."></textarea>
+    <button onclick="createPost()">Post</button>
+  </div>
+
+  <div id="postContainer"></div>
+</div>
+
+<!-- Example user list (fake users for testing) -->
+<div class ="post-card">
+  <h3>Online Users</h3>
+  <button class ="pill-button" onclick="startChat('user123', 'Alice')">Chat with Alice</button>
+  <button class ="pill-button" onclick="startChat('user456', 'Bob')">Chat with Bob</button>
+</div>
+
+<!-- Private Chat UI -->
+<div id="chat" style="display: none; margin-top: 20px;">
+  <h3>Private Chat with <span id="chatWith"></span></h3>
+  <div id="chatMessages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
+  <input type="text" id="chatInput" placeholder="Type a message..." style="width: 70%;" />
+  <button onclick="handleSendMessage()">Send</button>
+</div>
+<script src="main.js"></script>
+</body>
+</html>
