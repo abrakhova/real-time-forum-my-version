@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"real-time-forum/database"
 	"real-time-forum/models"
@@ -9,6 +10,12 @@ import (
 )
 
 func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	log.Println("Session cookie value:", cookie.Value)
 	user, ok := sessions.GetUserFromSession(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -22,7 +29,7 @@ func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stmt := `INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)`
-	_, err := database.DB.Exec(stmt, comment.PostID, user.ID, comment.Content)
+	_, err = database.DB.Exec(stmt, comment.PostID, user.ID, comment.Content)
 	if err != nil {
 		http.Error(w, "Failed to insert comment", http.StatusInternalServerError)
 		return
@@ -48,7 +55,7 @@ func GetCommentsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var comments []models.Comment
+	comments := make([]models.Comment, 0) // ✅ always non-nil
 	for rows.Next() {
 		var c models.Comment
 		if err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Content, &c.CreatedAt); err != nil {

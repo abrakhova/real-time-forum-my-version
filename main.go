@@ -31,8 +31,15 @@ func main() {
 	mux.HandleFunc("/check-auth", handlers.ProtectedHandler)
 	mux.HandleFunc("/api/comment", handlers.CreateCommentHandler)
 	mux.HandleFunc("/api/comments", handlers.GetCommentsHandler)
-	mux.HandleFunc("/api/create-post", handlers.CreatePostHandler)
-	mux.HandleFunc("/api/posts", handlers.GetPostsHandler)
+	mux.HandleFunc("/api/posts", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handlers.CreatePostHandler(w, r)
+		} else if r.Method == http.MethodGet {
+			handlers.GetPostsHandler(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	mux.HandleFunc("/ws", chat.HandleWebSocket)
 
 	log.Println("Starting server on http://localhost:8080/")

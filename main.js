@@ -6,12 +6,14 @@ window.toggleView = function () {
   const login = document.getElementById("loginForm");
   const register = document.getElementById("registerForm");
 
-  if (login.style.display === "none") {
-    login.style.display = "block";
-    register.style.display = "none";
-  } else {
-    login.style.display = "none";
-    register.style.display = "block";
+  if (login && register) {
+    if (login.style.display === "none") {
+      login.style.display = "block";
+      register.style.display = "none";
+    } else {
+      login.style.display = "none";
+      register.style.display = "block";
+    }
   }
 };
 
@@ -27,7 +29,8 @@ async function register() {
 
   const res = await fetch("/api/register", {
     method: "POST",
-    body: formData
+    body: formData,
+    credentials: "include"
   });
 
   if (res.ok) {
@@ -46,6 +49,7 @@ async function login() {
   const res = await fetch("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ identifier, password })
   });
 
@@ -59,13 +63,13 @@ async function login() {
 }
 
 async function logout() {
-  await fetch("/api/logout");
+  await fetch("/api/logout", { credentials: "include" });
   socket?.close();
   showAuth();
 }
 
 function checkAuth() {
-  fetch("/check-auth")
+  fetch("/check-auth", { credentials: "include" })
     .then(res => {
       if (!res.ok) throw new Error("Not logged in");
       return res.json();
@@ -81,17 +85,22 @@ function checkAuth() {
 }
 
 function showForum() {
-  //document.getElementById("auth").style.display = "none";
-  document.getElementById("forum").style.display = "block";
+  const forum = document.getElementById("forum");
+  const auth = document.getElementById("auth");
+  if (auth) auth.style.display = "none";
+  if (forum) forum.style.display = "block";
   loadPosts();
 }
 
 function showAuth() {
-  document.getElementById("auth").style.display = "block";
-  document.getElementById("forum").style.display = "none";
+  const auth = document.getElementById("auth");
+  const forum = document.getElementById("forum");
+  if (auth) auth.style.display = "block";
+  if (forum) forum.style.display = "none";
 }
 
 async function createPost() {
+  console.log("createPost() called");
   const titleInput = document.getElementById("post-title");
   const contentInput = document.getElementById("post-content");
 
@@ -99,9 +108,10 @@ async function createPost() {
   const content = contentInput.value.trim();
   if (!title || !content) return;
 
-  const res = await fetch("/api/posts", {
+  const res = await fetch("/api/create-post", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ title, content })
   });
 
@@ -116,7 +126,7 @@ async function createPost() {
 }
 
 async function loadPosts() {
-  const res = await fetch("/api/posts");
+  const res = await fetch("/api/posts", { credentials: "include" });
   if (!res.ok) {
     alert("Failed to load posts");
     return;
@@ -126,7 +136,11 @@ async function loadPosts() {
   const postContainer = document.getElementById("postContainer");
   postContainer.innerHTML = "";
 
-  posts.forEach(renderPost);
+  if (Array.isArray(posts)) {
+    posts.forEach(renderPost);
+  } else {
+    console.error("Expected posts to be an array, got:", posts);
+  }
 }
 
 function renderPost(post) {
@@ -171,23 +185,26 @@ function renderPost(post) {
   postDiv.appendChild(commentsDiv);
 
   postContainer.appendChild(postDiv);
-
   loadComments(post.id);
 }
 
 async function loadComments(postId) {
-  const res = await fetch(`/api/comments?post_id=${postId}`);
+  const res = await fetch(`/api/comments?post_id=${postId}`, { credentials: "include" });
   if (!res.ok) return;
 
   const comments = await res.json();
   const commentsContainer = document.getElementById(`comments-${postId}`);
   commentsContainer.innerHTML = "";
 
-  comments.forEach(comment => {
-    const p = document.createElement("p");
-    p.textContent = comment.content;
-    commentsContainer.appendChild(p);
-  });
+  if (Array.isArray(comments)) {
+    comments.forEach(comment => {
+      const p = document.createElement("p");
+      p.textContent = comment.content;
+      commentsContainer.appendChild(p);
+    });
+  } else {
+    console.warn("Invalid comments array:", comments);
+  }
 }
 
 async function submitComment(event, postId) {
@@ -199,7 +216,8 @@ async function submitComment(event, postId) {
   const res = await fetch("/api/comment", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ post_id: postId, content })
+    credentials: "include", // 
+    body: JSON.stringify({ postId: 1, content: "Nice post!" })
   });
 
   if (res.ok) {
@@ -220,12 +238,19 @@ function connectWebSocket(userID) {
   socket = new WebSocket(`ws://${window.location.host}/ws?user=${userID}`);
 
   socket.onopen = () => {
-    console.log("WebSocket connected.");
+    console.log("WebSocket connected");
+    socket.send(JSON.stringify({ type: "hello", message: "Hello from frontend!" }));
   };
 
   socket.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    alert(`Message from ${msg.from}: ${msg.content}`);
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.from && msg.content) {
+        appendChatMessage(msg.from, msg.content);
+      }
+    } catch (err) {
+      console.warn("Non-JSON WebSocket message received:", event.data);
+    }
   };
 
   socket.onclose = () => {
@@ -247,38 +272,6 @@ function sendMessage(to, content) {
 }
 
 let chatTo = null;
-
-// Replace with your real logged-in user ID from server
-const userID = "test-user"; // Change later to your real user identifier
-
-connectWebSocket(); // Call this on auth success
-
-function connectWebSocket() {
-  socket = new WebSocket(`ws://${window.location.host}/ws?user=${userID}`);
-
-  socket.onopen = () => {
-    console.log("WebSocket connected");
-    socket.send("Hello from frontend!");
-  };
-
-  socket.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-
-    // Show message in chat window if it's a direct message
-    if (msg.from && msg.content) {
-      appendChatMessage(msg.from, msg.content);
-    }
-  };
-
-  socket.onclose = () => {
-    console.log("WebSocket closed. Reconnecting in 1s...");
-    setTimeout(connectWebSocket, 1000);
-  };
-}
-
-function sendMessage(to, content) {
-  socket.send(JSON.stringify({ to, content }));
-}
 
 function startChat(userId, nickname) {
   chatTo = userId;
