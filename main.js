@@ -216,8 +216,8 @@ async function submitComment(event, postId) {
   const res = await fetch("/api/comment", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include", // 
-    body: JSON.stringify({ postId: 1, content: "Nice post!" })
+    credentials: "include",
+    body: JSON.stringify({ postId, content })
   });
 
   if (res.ok) {

@@ -1,8 +1,11 @@
 package chat
 
 import (
+	"encoding/json"
 	"net/http"
 	"sync"
+
+	"real-time-forum/database"
 
 	"github.com/gorilla/websocket"
 )
@@ -11,6 +14,12 @@ type Client struct {
 	ID   string
 	Conn *websocket.Conn
 	Send chan []byte
+}
+
+type Message struct {
+	FromUserID string `json:"from"`
+	ToUserID   string `json:"to"`
+	Content    string `json:"content"`
 }
 
 var (
@@ -63,7 +72,22 @@ func readPump(c *Client) {
 		if err != nil {
 			break
 		}
-		c.Send <- msg
+
+		var chatMsg Message
+		if err := json.Unmarshal(msg, &chatMsg); err != nil {
+			continue
+		}
+
+		database.SaveMessage(chatMsg.FromUserID, chatMsg.ToUserID, chatMsg.Content)
+
+		clientsMu.Lock()
+		receiver, ok := clients[chatMsg.ToUserID]
+		clientsMu.Unlock()
+
+		if ok {
+			encoded, _ := json.Marshal(chatMsg)
+			receiver.Send <- encoded
+		}
 	}
 }
 

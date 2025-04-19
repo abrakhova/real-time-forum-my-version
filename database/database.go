@@ -48,14 +48,25 @@ func createTables() {
 
 	commentTable := `
 	CREATE TABLE IF NOT EXISTS comments (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	post_id INTEGER NOT NULL,
-	user_id INTEGER NOT NULL,
-	content TEXT NOT NULL,
-	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-	FOREIGN KEY(post_id) REFERENCES posts(id),
-	FOREIGN KEY(user_id) REFERENCES users(id)
-);`
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		post_id INTEGER NOT NULL,
+		user_id INTEGER NOT NULL,
+		content TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(post_id) REFERENCES posts(id),
+		FOREIGN KEY(user_id) REFERENCES users(id)
+	);`
+
+	messageTable := `
+	CREATE TABLE IF NOT EXISTS messages (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		from_user INTEGER NOT NULL,
+		to_user INTEGER NOT NULL,
+		content TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (from_user) REFERENCES users(id),
+		FOREIGN KEY (to_user) REFERENCES users(id)
+	);`
 
 	if _, err := DB.Exec(userTable); err != nil {
 		log.Fatal("Failed to create users table:", err)
@@ -65,5 +76,8 @@ func createTables() {
 	}
 	if _, err := DB.Exec(commentTable); err != nil {
 		log.Fatal("Failed to create comments table:", err)
+	}
+	if _, err := DB.Exec(messageTable); err != nil {
+		log.Fatal("Failed to create messages table:", err)
 	}
 }

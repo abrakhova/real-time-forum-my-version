@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"log"
 	"net/http"
 	"real-time-forum/models"
 	"sync"
@@ -30,6 +31,7 @@ func SetSession(w http.ResponseWriter, user models.User) {
 		Expires:  time.Now().Add(24 * time.Hour),
 	})
 
+	log.Println("Setting session for user:", user.ID, "with session ID:", sessionID)
 	// Save in-memory session
 	sessionsMutex.Lock()
 	sessions[sessionID] = user
@@ -39,20 +41,24 @@ func SetSession(w http.ResponseWriter, user models.User) {
 func GetUserFromSession(r *http.Request) (*models.User, bool) {
 	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
+		log.Println("[Session] No session cookie found")
 		return nil, false
 	}
+
+	log.Println("[Session] Found session cookie:", cookie.Value)
 
 	sessionsMutex.RLock()
 	user, exists := sessions[cookie.Value]
 	sessionsMutex.RUnlock()
 
 	if !exists {
+		log.Println("[Session] Session ID not found in memory:", cookie.Value)
 		return nil, false
 	}
 
+	log.Printf("[Session] Session found for user ID: %d (nickname: %s)\n", user.ID, user.Nickname)
 	return &user, true
 }
-
 func ClearSession(w http.ResponseWriter) {
 	// Clear cookie on the client
 	http.SetCookie(w, &http.Cookie{
