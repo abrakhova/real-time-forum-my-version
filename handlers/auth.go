@@ -12,6 +12,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type SafeUser struct {
+	ID       int    `json:"id"`
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	Message  string `json:"message"`
+}
+
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -73,7 +80,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var creds struct {
-		Identifier string `json:"identifier"` // nickname or email
+		Identifier string `json:"identifier"`
 		Password   string `json:"password"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&creds)
@@ -106,7 +113,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	sessions.SetSession(w, user)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "logged_in"})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "logged_in",
+		"id":       user.ID,
+		"nickname": user.Nickname,
+	})
 }
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -123,9 +134,11 @@ func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{
-		"message":  "Welcome, " + user.Nickname,
-		"nickname": user.Nickname,
-		"email":    user.Email,
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(SafeUser{
+		ID:       user.ID,
+		Nickname: user.Nickname,
+		Email:    user.Email,
+		Message:  "Welcome, " + user.Nickname,
 	})
 }

@@ -15,6 +15,7 @@ func ChatWebSocket(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
+	log.Println("🔌 Incoming request to /ws/chat with:", r.URL.RawQuery)
 	chat.HandleWebSocket(w, r)
 }
 

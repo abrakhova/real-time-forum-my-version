@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"real-time-forum/chat"
 	"real-time-forum/database"
 	"real-time-forum/handlers"
 )
@@ -40,7 +39,7 @@ func main() {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	mux.HandleFunc("/ws", chat.HandleWebSocket)
+	mux.HandleFunc("/ws/chat", handlers.ChatWebSocket)
 
 	log.Println("Starting server on http://localhost:8080/")
 	err := http.ListenAndServe(":8080", mux)

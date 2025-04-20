@@ -55,9 +55,10 @@ async function login() {
 
   if (res.ok) {
     const user = await res.json();
+    console.log("👤 Logged in user:", user); // Add this
     connectWebSocket(user.id);
     showForum();
-  } else {
+    } else {
     alert("Login failed");
   }
 }
@@ -233,33 +234,34 @@ async function submitComment(event, postId) {
 let socket;
 
 function connectWebSocket(userID) {
-  if (!userID) return;
+  alert("connectWebSocket called with userID: " + userID);
+  if (!userID) {
+    console.warn("User ID missing for WebSocket connection");
+    return;
+  }
 
-  socket = new WebSocket(`ws://${window.location.host}/ws?user=${userID}`);
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const wsUrl = `${protocol}://${window.location.host}/ws/chat?user=${userID}`;
+  console.log("🔗 Attempting to connect to WebSocket:", wsUrl);
+
+  socket = new WebSocket(wsUrl);
 
   socket.onopen = () => {
-    console.log("WebSocket connected");
+    console.log("✅ WebSocket connected");
     socket.send(JSON.stringify({ type: "hello", message: "Hello from frontend!" }));
   };
 
   socket.onmessage = (event) => {
-    try {
-      const msg = JSON.parse(event.data);
-      if (msg.from && msg.content) {
-        appendChatMessage(msg.from, msg.content);
-      }
-    } catch (err) {
-      console.warn("Non-JSON WebSocket message received:", event.data);
-    }
+    console.log("📩 WebSocket message:", event.data);
   };
 
   socket.onclose = () => {
-    console.log("WebSocket closed. Reconnecting in 1s...");
+    console.log("❌ WebSocket closed. Reconnecting in 1s...");
     setTimeout(() => connectWebSocket(userID), 1000);
   };
 
   socket.onerror = (e) => {
-    console.error("WebSocket error:", e);
+    console.error("💥 WebSocket error:", e);
   };
 }
 
