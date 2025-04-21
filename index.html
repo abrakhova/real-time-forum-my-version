@@ -2,10 +2,7 @@
 <html>
   <head>
     <title>Åland Real-Time Forum</title>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
-    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
@@ -16,17 +13,8 @@
             <img src="/static/aland-flag.png" alt="Logo" />
             <a class="logo-text" href="/">Åland Forum</a>
           </div>
-          <div class="nav-actions">
-            <button class="new-post" id="new-post">New Post</button>
-            {{if .SessionCookie}}
-            <a href="/profile-page" class="pill-button">Profile</a>
-            <a href="/about" class="pill-button">About</a>
-            <a id="logout-btn" href="javascript:void(0);" class="pill-button">Log out</a>
-            {{else}}
-            <a href="/login" class="pill-button">Log in</a>
-            <a href="/register" class="pill-button">Register</a>
-            <a href="/about" class="pill-button">About</a>
-            {{end}}
+          <div class="nav-actions" id="nav-actions">
+            <!-- Dynamic links will be inserted by JS -->
           </div>
         </div>
       </nav>
@@ -59,7 +47,6 @@
     <!-- Forum Content (hidden by default) -->
     <div id="forum" style="display: none;">
       <h2>Welcome to the Forum</h2>
-      <button onclick="logout()">Logout</button>
 
       <div id="postForm">
         <input id="post-title" placeholder="Post Title" />
@@ -77,10 +64,7 @@
       <!-- Private Chat UI -->
       <div id="chat" style="display: none; margin-top: 20px;">
         <h3>Private Chat with <span id="chatWith"></span></h3>
-        <div
-          id="chatMessages"
-          style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"
-        ></div>
+        <div id="chatMessages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
         <input type="text" id="chatInput" placeholder="Type a message..." style="width: 70%;" />
         <button onclick="handleSendMessage()">Send</button>
       </div>

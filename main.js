@@ -42,6 +42,31 @@ async function register() {
   }
 }
 
+function updateNav(loggedIn) {
+  const nav = document.getElementById("nav-actions");
+  nav.innerHTML = "";
+
+  if (loggedIn) {
+    nav.innerHTML = `
+      <button class="new-post" id="new-post" onclick="scrollToNewPost()">New Post</button>
+      <a href="/profile-page" class="pill-button">Profile</a>
+      <a href="/about" class="pill-button">About</a>
+      <a id="logout-btn" href="javascript:void(0);" class="pill-button" onclick="logout()">Log out</a>
+    `;
+  } else {
+    nav.innerHTML = `
+      <a href="/login" class="pill-button" onclick="showAuth(); return false;">Log in</a>
+      <a href="/register" class="pill-button" onclick="showAuth(true); return false;">Register</a>
+      <a href="/about" class="pill-button">About</a>
+    `;
+  }
+}
+
+function scrollToNewPost() {
+  document.getElementById("postForm")?.scrollIntoView({ behavior: "smooth" });
+}
+
+
 async function login() {
   const identifier = document.getElementById("login-identifier").value;
   const password = document.getElementById("login-password").value;
@@ -67,6 +92,8 @@ async function login() {
 async function logout() {
   await fetch("/api/logout", { credentials: "include" });
   socket?.close();
+  currentUserID = null;
+  updateNav(false);
   showAuth();
 }
 
@@ -78,11 +105,13 @@ function checkAuth() {
     })
     .then(user => {
       console.log("Welcome back,", user.nickname);
-      currentUserID = user.id; // Set currentUserID
+      currentUserID = user.id;
       connectWebSocket(user.id);
+      updateNav(true);
       showForum();
     })
     .catch(() => {
+      updateNav(false);
       showAuth();
     });
 }
@@ -95,11 +124,12 @@ function showForum() {
   loadPosts();
 }
 
-function showAuth() {
-  const auth = document.getElementById("auth");
-  const forum = document.getElementById("forum");
-  if (auth) auth.style.display = "block";
-  if (forum) forum.style.display = "none";
+function showAuth(showRegister = false) {
+  document.getElementById("auth").style.display = "block";
+  document.getElementById("forum").style.display = "none";
+
+  document.getElementById("loginForm").style.display = showRegister ? "none" : "block";
+  document.getElementById("registerForm").style.display = showRegister ? "block" : "none";
 }
 
 async function createPost() {
@@ -236,27 +266,39 @@ async function submitComment(event, postId) {
 let socket;
 let currentUserID = null;
 let chatTo = null;
+let currentChatUserId = null;
+let chatHistory = {}; // ✅ Stores messages by userId
 
 function connectWebSocket(userID) {
   socket = new WebSocket("ws://" + window.location.host + "/ws?user=" + userID);
 
-  socket.onmessage = function (event) {
-    const data = JSON.parse(event.data);
+  socket.onopen = function() {
+    console.log("WebSocket connection established!"); // Log connection status
+  };
 
+  socket.onmessage = function (event) {
+    console.log("📡 Raw WebSocket event:", event.data); // Add this line
+  
+    const data = JSON.parse(event.data);
+  
     if (data.type === "online_users") {
       updateOnlineUsers(data.users);
     } else if (data.from) {
-      showIncomingMessage(data);
+      handleIncomingMessage(data);
     }
   };
 
   socket.onclose = function () {
-    console.log("WebSocket connection closed");
+    console.log("WebSocket connection closed"); // Log when connection closes
     document.getElementById("chat").style.display = "none";
   };
 }
 
+let onlineUsers = [];
+
 function updateOnlineUsers(users) {
+  onlineUsers = users; // ✅ Save the list globally for later reference
+
   const container = document.getElementById("onlineUsers");
   container.innerHTML = "";
 
@@ -265,35 +307,111 @@ function updateOnlineUsers(users) {
       const btn = document.createElement("button");
       btn.className = "pill-button";
       btn.textContent = "Chat with " + user.nickname;
-      btn.onclick = () => startChat(user.id, user.nickname);
+      btn.id = `chat-user-${user.id}`;
+      btn.onclick = () => {
+        openChatWith(user.id, user.nickname);
+        clearNotification(user.id);
+      };
       container.appendChild(btn);
     }
   });
 }
 
-function showIncomingMessage(data) {
-  if (chatTo !== data.from) {
-    const open = confirm("📨 New message received. Open chat?");
-    if (open) {
-      startChat(data.from, "Friend"); // Optional: resolve nickname by ID
-    }
+function handleIncomingMessage(data) {
+  console.log("📥 Received message data:", data);
+
+  // ✅ Ignore own message when it echoes back
+  if (data.from == currentUserID) {
+    console.log("🚫 Ignoring self-sent message.");
+    return;
   }
-  appendChatMessage("Them", data.content);
+
+  const message = {
+    SenderID: data.from,
+    ReceiverID: data.to,
+    Content: data.content
+  };
+
+  if (!chatHistory[data.from]) {
+    console.log("🗃️ Creating new history for user:", data.from);
+    chatHistory[data.from] = [];
+  }
+  chatHistory[data.from].push(message);
+  console.log("💾 Message stored. Chat history with user", data.from, "now has", chatHistory[data.from].length, "messages.");
+
+  console.log("📌 Currently chatting with user ID:", chatTo);
+  console.log("📨 Incoming message is from user ID:", data.from);
+
+  if (chatTo !== data.from) {
+    console.log("✨ Not currently chatting with this user. Highlighting their name.");
+    highlightUserInSidebar(data.from);
+    return;
+  }
+
+  console.log("📝 Appending message to open chat:", message);
+  appendChatMessage(message);
+}
+
+function highlightUserInSidebar(userId) {
+  const userBtn = document.getElementById(`chat-user-${userId}`);
+  if (userBtn) {
+    userBtn.classList.add("highlight"); // or whatever class you're using
+  }
+}
+
+function clearNotification(userId) {
+  const userBtn = document.getElementById(`chat-user-${userId}`);
+  if (userBtn) {
+    userBtn.classList.remove("highlight");
+  }
 }
 
 function sendMessage(to, content) {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ to, content }));
+
+    const message = {
+      SenderID: currentUserID,
+      ReceiverID: to,
+      Content: content
+    };
+
+    // ✅ Save to chat history
+    if (!chatHistory[to]) {
+      chatHistory[to] = [];
+    }
+    chatHistory[to].push(message);
+
+    appendChatMessage(message);
   } else {
+    console.log("WebSocket state:", socket.readyState); // Log socket state
     alert("WebSocket not connected");
   }
 }
 
-function startChat(userId, nickname) {
+function openChatWith(userId, nickname) {
   chatTo = userId;
-  document.getElementById("chatWith").textContent = nickname;
-  document.getElementById("chatMessages").innerHTML = "";
+  currentChatUserId = userId;
+
+  console.log("🔑 Chat opened with user ID:", userId, "Nickname:", nickname);
+
+  const chatTitle = document.getElementById("chatWith");
+  const chatBox = document.getElementById("chatMessages");
+
+  chatTitle.textContent = nickname;
   document.getElementById("chat").style.display = "block";
+  chatBox.innerHTML = "";
+
+  // ✅ Load previous messages from history
+  const messages = chatHistory[userId] || [];
+  messages.forEach((msg) => {
+    appendChatMessage(msg);
+  });
+
+  scrollChatToBottom();
+
+  // 🧹 Remove highlight when chat is opened
+  clearNotification(userId);
 }
 
 function handleSendMessage() {
@@ -302,14 +420,49 @@ function handleSendMessage() {
   if (!message || !chatTo) return;
 
   sendMessage(chatTo, message);
-  appendChatMessage("You", message);
   input.value = "";
 }
 
-function appendChatMessage(sender, text) {
-  const container = document.getElementById("chatMessages");
-  const div = document.createElement("div");
-  div.innerHTML = `<strong>${sender}:</strong> ${text}`;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+function appendChatMessage(message) {
+  console.log("📤 Appending message:", message);
+  console.log("📌 Current Chat User ID:", currentChatUserId);
+
+  const chatMessages = document.getElementById("chatMessages");
+
+  // ✅ Only show messages in the current chat
+  if (
+    message.SenderID !== currentChatUserId &&
+    message.ReceiverID !== currentChatUserId
+  ) {
+    console.log("⛔ Message not for current chat, skipping:", message);
+    return;
+  }
+
+  const isFromCurrentUser = message.SenderID === currentUserID;
+
+  const messageEl = document.createElement("div");
+  messageEl.className = isFromCurrentUser ? "chat-msg self" : "chat-msg other";
+
+  const senderLabel = document.createElement("span");
+  senderLabel.className = isFromCurrentUser ? "me" : "other-user";
+  senderLabel.textContent = isFromCurrentUser ? "Me: " : `${getNicknameById(message.SenderID)}: `;
+
+  const contentSpan = document.createElement("span");
+  contentSpan.textContent = message.Content;
+
+  messageEl.appendChild(senderLabel);
+  messageEl.appendChild(contentSpan);
+  chatMessages.appendChild(messageEl);
+
+  scrollChatToBottom();
+}
+
+function getNicknameById(userId) {
+  const user = onlineUsers.find(u => u.id === userId);
+  return user ? user.nickname : "Unknown";
+}
+
+function scrollChatToBottom() {
+  const chatMessages = document.getElementById("chatMessages");
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }

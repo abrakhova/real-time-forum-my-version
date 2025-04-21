@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
+	"time"
 
 	"real-time-forum/database"
 
@@ -29,9 +30,10 @@ type SafeUserRef struct {
 }
 
 type Message struct {
-	FromUserID string `json:"from"`
-	ToUserID   string `json:"to"`
-	Content    string `json:"content"`
+	FromUserID string    `json:"from"`
+	ToUserID   string    `json:"to"`
+	Content    string    `json:"content"`
+	CreatedAt  time.Time `json:"created_at"` // optional, can be used by frontend
 }
 
 var (
@@ -78,7 +80,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	clients[userID] = client
 	clientsMu.Unlock()
 
-	// Broadcast to others that a new user is online
+	// Broadcast updated list
 	broadcastOnlineUsers()
 
 	go readPump(client)
@@ -90,7 +92,6 @@ func readPump(c *Client) {
 		clientsMu.Lock()
 		delete(clients, c.ID)
 		clientsMu.Unlock()
-
 		c.Conn.Close()
 
 		// Broadcast updated list after user leaves
@@ -108,16 +109,42 @@ func readPump(c *Client) {
 			continue
 		}
 
+		chatMsg.FromUserID = c.ID // ← FORCE correct sender ID from WebSocket connection
+
+		// Save to DB
 		database.SaveMessage(chatMsg.FromUserID, chatMsg.ToUserID, chatMsg.Content)
 
-		clientsMu.Lock()
-		receiver, ok := clients[chatMsg.ToUserID]
-		clientsMu.Unlock()
-
-		if ok {
-			encoded, _ := json.Marshal(chatMsg)
-			receiver.Send <- encoded
+		// Encode the message once
+		encoded, err := json.Marshal(chatMsg)
+		if err != nil {
+			continue
 		}
+
+		// Lock the clients map
+		clientsMu.Lock()
+
+		// DEBUG: print currently connected client IDs
+		for id := range clients {
+			println("Connected client ID:", id)
+		}
+
+		receiver, receiverOk := clients[chatMsg.ToUserID]
+		sender, senderOk := clients[chatMsg.FromUserID]
+
+		if receiverOk {
+			println("Sending message to receiver:", chatMsg.ToUserID)
+			receiver.Send <- encoded
+		} else {
+			println("Recipient not connected:", chatMsg.ToUserID)
+		}
+
+		// Send the message back to the sender too (so they see their own message)
+		if senderOk {
+			println("Sending message back to sender:", chatMsg.FromUserID)
+			sender.Send <- encoded
+		}
+
+		clientsMu.Unlock()
 	}
 }
 
@@ -153,7 +180,6 @@ func broadcastOnlineUsers() {
 
 	data, _ := json.Marshal(msg)
 	for _, client := range clients {
-		// Send in a goroutine to avoid blocking others
 		go func(c *Client) {
 			c.Send <- data
 		}(client)
