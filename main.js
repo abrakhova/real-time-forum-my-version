@@ -55,10 +55,11 @@ async function login() {
 
   if (res.ok) {
     const user = await res.json();
-    console.log("👤 Logged in user:", user); // Add this
+    console.log("👤 Logged in user:", user);
+    currentUserID = user.id; // Set currentUserID
     connectWebSocket(user.id);
     showForum();
-    } else {
+  } else {
     alert("Login failed");
   }
 }
@@ -77,6 +78,7 @@ function checkAuth() {
     })
     .then(user => {
       console.log("Welcome back,", user.nickname);
+      currentUserID = user.id; // Set currentUserID
       connectWebSocket(user.id);
       showForum();
     })
@@ -229,40 +231,54 @@ async function submitComment(event, postId) {
   }
 }
 
-// --- WebSocket ---
+// --- WebSocket & Chat ---
 
 let socket;
+let currentUserID = null;
+let chatTo = null;
 
 function connectWebSocket(userID) {
-  alert("connectWebSocket called with userID: " + userID);
-  if (!userID) {
-    console.warn("User ID missing for WebSocket connection");
-    return;
+  socket = new WebSocket("ws://" + window.location.host + "/ws?user=" + userID);
+
+  socket.onmessage = function (event) {
+    const data = JSON.parse(event.data);
+
+    if (data.type === "online_users") {
+      updateOnlineUsers(data.users);
+    } else if (data.from) {
+      showIncomingMessage(data);
+    }
+  };
+
+  socket.onclose = function () {
+    console.log("WebSocket connection closed");
+    document.getElementById("chat").style.display = "none";
+  };
+}
+
+function updateOnlineUsers(users) {
+  const container = document.getElementById("onlineUsers");
+  container.innerHTML = "";
+
+  users.forEach((user) => {
+    if (user.id !== currentUserID) {
+      const btn = document.createElement("button");
+      btn.className = "pill-button";
+      btn.textContent = "Chat with " + user.nickname;
+      btn.onclick = () => startChat(user.id, user.nickname);
+      container.appendChild(btn);
+    }
+  });
+}
+
+function showIncomingMessage(data) {
+  if (chatTo !== data.from) {
+    const open = confirm("📨 New message received. Open chat?");
+    if (open) {
+      startChat(data.from, "Friend"); // Optional: resolve nickname by ID
+    }
   }
-
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const wsUrl = `${protocol}://${window.location.host}/ws/chat?user=${userID}`;
-  console.log("🔗 Attempting to connect to WebSocket:", wsUrl);
-
-  socket = new WebSocket(wsUrl);
-
-  socket.onopen = () => {
-    console.log("✅ WebSocket connected");
-    socket.send(JSON.stringify({ type: "hello", message: "Hello from frontend!" }));
-  };
-
-  socket.onmessage = (event) => {
-    console.log("📩 WebSocket message:", event.data);
-  };
-
-  socket.onclose = () => {
-    console.log("❌ WebSocket closed. Reconnecting in 1s...");
-    setTimeout(() => connectWebSocket(userID), 1000);
-  };
-
-  socket.onerror = (e) => {
-    console.error("💥 WebSocket error:", e);
-  };
+  appendChatMessage("Them", data.content);
 }
 
 function sendMessage(to, content) {
@@ -273,12 +289,10 @@ function sendMessage(to, content) {
   }
 }
 
-let chatTo = null;
-
 function startChat(userId, nickname) {
   chatTo = userId;
   document.getElementById("chatWith").textContent = nickname;
-  document.getElementById("chatMessages").innerHTML = ""; // Clear old messages
+  document.getElementById("chatMessages").innerHTML = "";
   document.getElementById("chat").style.display = "block";
 }
 

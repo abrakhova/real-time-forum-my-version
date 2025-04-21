@@ -12,13 +12,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type SafeUser struct {
-	ID       int    `json:"id"`
-	Nickname string `json:"nickname"`
-	Email    string `json:"email"`
-	Message  string `json:"message"`
-}
-
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -135,7 +128,7 @@ func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SafeUser{
+	json.NewEncoder(w).Encode(models.SafeUser{
 		ID:       user.ID,
 		Nickname: user.Nickname,
 		Email:    user.Email,
