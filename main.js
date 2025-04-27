@@ -344,7 +344,9 @@ function handleIncomingMessage(data) {
   const message = {
     SenderID: data.from,
     ReceiverID: data.to,
-    Content: data.content
+    Content: data.content,
+    Timestamp: new Date().toLocaleString(), // Add timestamp when the message is received
+    SenderNickname: getNicknameById(data.from) // Get the nickname of the sender
   };
 
   if (!chatHistory[data.from]) {
@@ -383,13 +385,15 @@ function clearNotification(userId) {
 
 function sendMessage(to, content) {
   if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ to, content }));
-
+    const timestamp = new Date().toISOString(); // Current timestamp when sending a message
     const message = {
       SenderID: currentUserID,
       ReceiverID: to,
-      Content: content
+      Content: content,
+      timestamp: timestamp // Add timestamp to the message object
     };
+
+    socket.send(JSON.stringify({ to, content, timestamp }));
 
     // ✅ Save to chat history
     if (!chatHistory[to]) {
@@ -463,7 +467,18 @@ function appendChatMessage(message) {
 
   const senderLabel = document.createElement("span");
   senderLabel.className = isFromCurrentUser ? "me" : "other-user";
-  senderLabel.textContent = isFromCurrentUser ? "Me: " : `${getNicknameById(message.SenderID)}: `;
+  
+  // Validate timestamp and format it correctly
+  let timestamp = new Date(message.timestamp);
+  if (isNaN(timestamp)) {
+    // Fallback to current time if the timestamp is invalid
+    console.warn("Invalid timestamp, using current date instead");
+    timestamp = new Date();
+  }
+  
+  const formattedTimestamp = timestamp.toLocaleString();
+  
+  senderLabel.textContent = isFromCurrentUser ? `Me: ${formattedTimestamp}` : `${getNicknameById(message.SenderID)}: ${formattedTimestamp}`;
 
   const contentSpan = document.createElement("span");
   contentSpan.textContent = message.Content;
