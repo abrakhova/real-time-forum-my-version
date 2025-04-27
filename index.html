@@ -21,8 +21,13 @@
     </header>
 
     <!-- Auth Forms (hidden by default) -->
-    <div id="auth" style="display: none;">
+    
       <div class="container">
+        <div class = "categories">
+      <h3>Categories</h3>
+    </div>
+    <div class = "feed">
+      <div id="auth" style="display: none;">
         <div id="loginForm">
           <input id="login-identifier" placeholder="Nickname or Email" />
           <input id="login-password" type="password" placeholder="Password" />
@@ -42,11 +47,13 @@
           <p onclick="toggleView()">Already have an account? Login</p>
         </div>
       </div>
-    </div>
+   
+    
 
     <!-- Forum Content (hidden by default) -->
     <div id="forum" style="display: none;">
       <h2>Welcome to the Forum</h2>
+      <p>Connect with others and share your thoughts.</p>
 
       <div id="postForm">
         <input id="post-title" placeholder="Post Title" />
@@ -56,20 +63,28 @@
 
       <div id="postContainer"></div>
 
-      <div class="post-card">
-        <h3>Online Users</h3>
-        <div id="onlineUsers"></div>
-      </div>
-
-      <!-- Private Chat UI -->
-      <div id="chat" style="display: none; margin-top: 20px;">
-        <h3>Private Chat with <span id="chatWith"></span></h3>
-        <div id="chatMessages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
-        <input type="text" id="chatInput" placeholder="Type a message..." style="width: 70%;" />
-        <button onclick="handleSendMessage()">Send</button>
-      </div>
     </div>
 
+    </div>
+
+  
+      <!-- Chat Modal -->
+<div id="chatModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <span class="close-button" onclick="closeChatModal()">&times;</span>
+    <h3>Private Chat with <span id="chatWith"></span></h3>
+    <div id="chatMessages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
+    <input type="text" id="chatInput" placeholder="Type a message..." style="width: 70%;" />
+    <button onclick="handleSendMessage()">Send</button>
+  </div>
+</div>
+    
+
+    <div class="chat-sidebar">
+      <h3>Online Users</h3>
+      <div id="onlineUsers"></div>
+    </div>
+  </div>
     <script src="main.js"></script>
   </body>
 </html>

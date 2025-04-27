@@ -141,7 +141,7 @@ async function createPost() {
   const content = contentInput.value.trim();
   if (!title || !content) return;
 
-  const res = await fetch("/api/create-post", {
+  const res = await fetch("/api/posts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -302,19 +302,34 @@ function updateOnlineUsers(users) {
   const container = document.getElementById("onlineUsers");
   container.innerHTML = "";
 
+  // Create an unordered list element
+  const userList = document.createElement("ul");
+
   users.forEach((user) => {
     if (user.id !== currentUserID) {
+      // Create a list item
+      const listItem = document.createElement("li");
+
+      // Create a button
       const btn = document.createElement("button");
       btn.className = "pill-button";
-      btn.textContent = "Chat with " + user.nickname;
+      btn.textContent = user.nickname;
       btn.id = `chat-user-${user.id}`;
       btn.onclick = () => {
         openChatWith(user.id, user.nickname);
         clearNotification(user.id);
-      };
-      container.appendChild(btn);
+      }; // Properly close the onclick function
+
+      // Append the button to the list item
+      listItem.appendChild(btn);
+
+      // Append the list item to the unordered list
+      userList.appendChild(listItem);
     }
   });
+
+  // Append the user list to the container
+  container.appendChild(userList);
 }
 
 function handleIncomingMessage(data) {
@@ -397,21 +412,24 @@ function openChatWith(userId, nickname) {
 
   const chatTitle = document.getElementById("chatWith");
   const chatBox = document.getElementById("chatMessages");
+  const chatModal = document.getElementById("chatModal");
 
-  chatTitle.textContent = nickname;
-  document.getElementById("chat").style.display = "block";
-  chatBox.innerHTML = "";
+  if (chatModal && chatTitle && chatBox) {
+    chatTitle.textContent = nickname;
+    chatModal.style.display = "block";
+    chatBox.innerHTML = "";
 
-  // ✅ Load previous messages from history
-  const messages = chatHistory[userId] || [];
-  messages.forEach((msg) => {
-    appendChatMessage(msg);
-  });
+    // Load previous messages
+    const messages = chatHistory[userId] || [];
+    messages.forEach((msg) => {
+      appendChatMessage(msg);
+    });
 
-  scrollChatToBottom();
-
-  // 🧹 Remove highlight when chat is opened
-  clearNotification(userId);
+    scrollChatToBottom();
+    clearNotification(userId);
+  } else {
+    console.error("Chat modal or elements not found!");
+  }
 }
 
 function handleSendMessage() {
@@ -465,4 +483,24 @@ function getNicknameById(userId) {
 function scrollChatToBottom() {
   const chatMessages = document.getElementById("chatMessages");
   chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function openChatModal(username) {
+  document.getElementById("chatWith").textContent = username;
+  document.getElementById("chatModal").style.display = "flex";
+}
+
+function closeChatModal() {
+  document.getElementById("chatModal").style.display = "none";
+}
+
+function renderOnlineUsers(users) {
+  const container = document.getElementById("onlineUsers");
+  container.innerHTML = "";
+  users.forEach(user => {
+    const userDiv = document.createElement("div");
+    userDiv.textContent = user.nickname;
+    userDiv.onclick = () => openChatModal(user.nickname);
+    container.appendChild(userDiv);
+  });
 }

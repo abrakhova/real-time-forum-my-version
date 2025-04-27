@@ -1,3 +1,11 @@
+#user-list-container {
+  list-style-type: none;
+  padding: 0;
+}
+
+#user-list-container li {
+  margin: 5px 0;
+}
 .chat-msg {
   padding: 5px 10px;
   margin: 5px 0;

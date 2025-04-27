@@ -41,6 +41,7 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("GetPostsHandler called")
 	w.Header().Set("Content-Type", "application/json") // Add this
 
 	// Always initialize the slice to avoid returning null
@@ -63,7 +64,8 @@ func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
 		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Author)
 		if err != nil {
 			http.Error(w, "Failed to scan post", http.StatusInternalServerError)
-			return
+			log.Println("Error scanning post:", err)
+			continue // Skip bad row, but continue sending others
 		}
 		posts = append(posts, p)
 	}
