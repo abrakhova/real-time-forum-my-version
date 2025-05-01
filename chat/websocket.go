@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 )
 
 type Client struct {
-	ID       string
+	ID       int
 	Nickname string
 	Conn     *websocket.Conn
 	Send     chan []byte
@@ -25,15 +26,16 @@ type OnlineUsersMessage struct {
 }
 
 type SafeUserRef struct {
-	ID       string `json:"id"`
+	ID       int    `json:"id"`
 	Nickname string `json:"nickname"`
 }
 
 type Message struct {
-	FromUserID string    `json:"from"`
-	ToUserID   string    `json:"to"`
+	FromUserID int       `json:"from_user"`
+	ToUserID   int       `json:"to_user"`
 	Content    string    `json:"content"`
-	CreatedAt  time.Time `json:"created_at"` // optional, can be used by frontend
+	CreatedAt  time.Time `json:"created_at"`
+	FromUser   string    `json:"from_user_nickname"` // <-- ADD THIS!
 }
 
 var (
@@ -42,19 +44,25 @@ var (
 			return true
 		},
 	}
-	clients   = make(map[string]*Client)
+	clients   = make(map[int]*Client)
 	clientsMu sync.Mutex
 )
 
 func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("user")
-	if userID == "" {
+	userIDStr := r.URL.Query().Get("user")
+	if userIDStr == "" {
 		http.Error(w, "User ID required", http.StatusBadRequest)
 		return
 	}
 
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
 	var nickname string
-	err := database.DB.QueryRow("SELECT nickname FROM users WHERE id = ?", userID).Scan(&nickname)
+	err = database.DB.QueryRow("SELECT nickname FROM users WHERE id = ?", userID).Scan(&nickname)
 	if err == sql.ErrNoRows {
 		http.Error(w, "User not found", http.StatusUnauthorized)
 		return
@@ -80,7 +88,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	clients[userID] = client
 	clientsMu.Unlock()
 
-	// Broadcast updated list
 	broadcastOnlineUsers()
 
 	go readPump(client)
@@ -93,8 +100,6 @@ func readPump(c *Client) {
 		delete(clients, c.ID)
 		clientsMu.Unlock()
 		c.Conn.Close()
-
-		// Broadcast updated list after user leaves
 		broadcastOnlineUsers()
 	}()
 
@@ -109,41 +114,36 @@ func readPump(c *Client) {
 			continue
 		}
 
-		chatMsg.FromUserID = c.ID // ← FORCE correct sender ID from WebSocket connection
+		// Set the timestamp for the message
+		chatMsg.FromUserID = c.ID
+		chatMsg.FromUser = c.Nickname
+		chatMsg.CreatedAt = time.Now() // Set the current time as the timestamp
 
 		// Save to DB
 		database.SaveMessage(chatMsg.FromUserID, chatMsg.ToUserID, chatMsg.Content)
 
-		// Encode the message once
-		encoded, err := json.Marshal(chatMsg)
+		// Wrap the message into an envelope for sending
+		envelope := struct {
+			Type    string  `json:"type"`
+			Payload Message `json:"payload"`
+		}{
+			Type:    "newMessage",
+			Payload: chatMsg, // Include the full message with the timestamp
+		}
+
+		encoded, err := json.Marshal(envelope)
 		if err != nil {
 			continue
 		}
 
-		// Lock the clients map
+		// Send the message to the intended recipient and the sender
 		clientsMu.Lock()
-
-		// DEBUG: print currently connected client IDs
-		for id := range clients {
-			println("Connected client ID:", id)
-		}
-
-		receiver, receiverOk := clients[chatMsg.ToUserID]
-		sender, senderOk := clients[chatMsg.FromUserID]
-
-		if receiverOk {
-			println("Sending message to receiver:", chatMsg.ToUserID)
+		if receiver, ok := clients[chatMsg.ToUserID]; ok {
 			receiver.Send <- encoded
-		} else {
-			println("Recipient not connected:", chatMsg.ToUserID)
 		}
-
-		// Send the message back to the sender too (so they see their own message)
-		if senderOk {
-			println("Sending message back to sender:", chatMsg.FromUserID)
+		if sender, ok := clients[chatMsg.FromUserID]; ok {
 			sender.Send <- encoded
 		}
-
 		clientsMu.Unlock()
 	}
 }
