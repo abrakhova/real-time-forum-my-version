@@ -279,11 +279,11 @@ async function submitComment(event, postId) {
 function connectWebSocket(userID) {
   socket = new WebSocket("ws://" + window.location.host + "/ws?user=" + userID);
 
-  socket.onopen = function() {
+  socket.onopen = function () {
     console.log("WebSocket connection established!");
   };
 
-  socket.onmessage = function(event) {
+  socket.onmessage = function (event) {
     const data = JSON.parse(event.data);
 
     if (data.type === "online_users") {
@@ -299,14 +299,16 @@ function connectWebSocket(userID) {
           chatHistory[currentChatUserId] = [];
         }
         chatHistory[currentChatUserId].push(data.payload);
-        renderMessages([data.payload], true);
+        console.log("Calling renderMessages() from connectWebSocet()");
+        //renderMessages([data.payload], true);
+        renderMessages([data.payload], false);
       } else {
         highlightUserInSidebar(data.payload.from_user);
       }
     }
   };
 
-  socket.onclose = function() {
+  socket.onclose = function () {
     console.log("WebSocket connection closed");
     document.getElementById("chatModal").style.display = "none";
   };
@@ -357,6 +359,7 @@ function openChatWith(userId, nickname) {
   chatBox.innerHTML = "";
 
   isLoadingMessages = true;
+  console.log("Calling loadMessagesPage() normally from openchatwith()");
   loadMessagesPage(userId, currentPage, false).finally(() => {
     scrollChatToBottom();
     isLoadingMessages = false;
@@ -370,6 +373,7 @@ function openChatWith(userId, nickname) {
       document.getElementById("loadingOlder").style.display = "block";
 
       currentPage++;
+      console.log("Scroll event triggering loadMessagesPage()");
       loadMessagesPage(userId, currentPage, true).finally(() => {
         isLoadingMessages = false;
         document.getElementById("loadingOlder").style.display = "none";
@@ -379,6 +383,7 @@ function openChatWith(userId, nickname) {
 }
 
 async function loadMessagesPage(userId, page, append) {
+
   const offset = page * messagesPerPage;
   try {
     const res = await fetch(`/api/messages?from=${currentUserID}&to=${userId}&offset=${offset}`, {
@@ -390,14 +395,18 @@ async function loadMessagesPage(userId, page, append) {
     if (!chatHistory[userId]) {
       chatHistory[userId] = [];
     }
-    if (append) {
-      chatHistory[userId] = [...messages, ...chatHistory[userId]];
-    } else {
-      chatHistory[userId] = messages;
-    }
 
-    chatHistory[userId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    renderMessages(chatHistory[userId], append);
+    if (messages) {
+      if (append) {
+        chatHistory[userId] = [...messages, ...chatHistory[userId]];
+      } else {
+        chatHistory[userId] = messages;
+      }
+
+      chatHistory[userId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      console.log("rendering messages from loadMessagesPage()");
+      renderMessages(chatHistory[userId], append);
+    }
   } catch (err) {
     console.error("Failed to load messages:", err);
   }
@@ -424,10 +433,11 @@ function handleSendMessage() {
   if (!chatHistory[currentChatUserId]) {
     chatHistory[currentChatUserId] = [];
   }
-  chatHistory[currentChatUserId].push(newMessage);
-  chatHistory[currentChatUserId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  renderMessages([newMessage], true);
+  //chatHistory[currentChatUserId].push(newMessage);
+  //chatHistory[currentChatUserId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  //renderMessages([newMessage], true);
+
   messageInput.value = "";
   messageInput.focus();
 }
@@ -457,11 +467,11 @@ function renderMessages(messages, append = false) {
   });
 
   if (append) {
-    const oldScrollHeight = chatBox.scrollHeight;
+    console.log("is this always 0?", chatBox.scrollTop)
+    const offset = chatBox.scrollHeight - chatBox.scrollTop;
+    chatBox.innerHTML = "";
     elements.forEach((el) => chatBox.appendChild(el));
-    if (chatBox.scrollTop + chatBox.clientHeight >= oldScrollHeight - 50) {
-      scrollChatToBottom();
-    }
+    chatBox.scrollTop = chatBox.scrollHeight - offset;
   } else {
     chatBox.innerHTML = "";
     elements.forEach((el) => chatBox.appendChild(el));
