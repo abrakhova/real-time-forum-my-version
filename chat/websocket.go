@@ -173,12 +173,37 @@ func broadcastOnlineUsers() {
 		})
 	}
 
-	msg := OnlineUsersMessage{
-		Type:  "online_users",
-		Users: online,
+	// 🔽 Fetch all users from DB
+	rows, err := database.DB.Query("SELECT id, nickname FROM users")
+	if err != nil {
+		return // handle error properly in production
+	}
+	defer rows.Close()
+
+	var all []SafeUserRef
+	for rows.Next() {
+		var user SafeUserRef
+		if err := rows.Scan(&user.ID, &user.Nickname); err == nil {
+			all = append(all, user)
+		}
+	}
+
+	// 🔽 Wrap both online and all users into one JSON message
+	type Payload struct {
+		Type        string        `json:"type"`
+		OnlineUsers []SafeUserRef `json:"onlineUsers"`
+		AllUsers    []SafeUserRef `json:"allUsers"`
+	}
+
+	msg := Payload{
+		Type:        "online_users",
+		OnlineUsers: online,
+		AllUsers:    all,
 	}
 
 	data, _ := json.Marshal(msg)
+
+	// 🔽 Send it to all connected clients
 	for _, client := range clients {
 		go func(c *Client) {
 			c.Send <- data

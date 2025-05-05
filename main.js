@@ -5,6 +5,7 @@ let chatHistory = {};
 let currentPage = 0;
 const messagesPerPage = 10;
 let isLoadingMessages = false;
+let allUsers = [];
 let onlineUsers = [];
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -287,7 +288,8 @@ function connectWebSocket(userID) {
     const data = JSON.parse(event.data);
 
     if (data.type === "online_users") {
-      updateOnlineUsers(data.users);
+      allUsers = data.allUsers;
+      updateOnlineUsers(data.onlineUsers);
     } else if (data.type === "newMessage") {
       if (
         currentChatUserId && (
@@ -314,15 +316,13 @@ function connectWebSocket(userID) {
   };
 }
 
-function updateOnlineUsers(users) {
-  onlineUsers = users;
-
+function updateOnlineUsers(onlineUsers) {
   const container = document.getElementById("onlineUsers");
   container.innerHTML = "";
 
   const userList = document.createElement("ul");
 
-  users.forEach((user) => {
+  allUsers.forEach((user) => {
     if (user.id !== currentUserID) {
       const listItem = document.createElement("li");
       const btn = document.createElement("button");
@@ -333,6 +333,17 @@ function updateOnlineUsers(users) {
         openChatWith(user.id, user.nickname);
         clearNotification(user.id);
       };
+
+      // Check if the user is online
+      const isOnline = onlineUsers.some(u => u.id === user.id);
+
+      // Create green dot if online
+      if (isOnline) {
+        const dot = document.createElement("span");
+        dot.className = "online-dot";
+        btn.prepend(dot); // or use btn.appendChild(dot) to move dot after text
+      }
+
       listItem.appendChild(btn);
       userList.appendChild(listItem);
     }
