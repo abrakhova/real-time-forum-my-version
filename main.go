@@ -27,6 +27,7 @@ func main() {
 	mux.HandleFunc("/api/register", handlers.RegisterUser)
 	mux.HandleFunc("/api/login", handlers.LoginHandler)
 	mux.HandleFunc("/api/logout", handlers.LogoutHandler)
+	mux.HandleFunc("/api/userlist", handlers.UserlistHandler)
 	mux.HandleFunc("/check-auth", handlers.ProtectedHandler)
 	mux.HandleFunc("/api/comment", handlers.CreateCommentHandler)
 	mux.HandleFunc("/api/comments", handlers.GetCommentsHandler)

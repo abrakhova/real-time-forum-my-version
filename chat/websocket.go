@@ -175,6 +175,7 @@ func broadcastOnlineUsers() {
 
 	// 🔽 Fetch all users from DB
 	rows, err := database.DB.Query("SELECT id, nickname FROM users")
+
 	if err != nil {
 		return // handle error properly in production
 	}

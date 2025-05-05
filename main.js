@@ -288,7 +288,8 @@ function connectWebSocket(userID) {
     const data = JSON.parse(event.data);
 
     if (data.type === "online_users") {
-      allUsers = data.allUsers;
+      //allUsers = data.allUsers;
+
       updateOnlineUsers(data.onlineUsers);
     } else if (data.type === "newMessage") {
       if (
@@ -316,13 +317,32 @@ function connectWebSocket(userID) {
   };
 }
 
-function updateOnlineUsers(onlineUsers) {
+async function fetchUsers() {
+  try {
+    const res = await fetch(`http://${window.location.host}/api/userlist`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch user list");
+    console.log("Response from /api/userlist:", res);
+
+    const users = await res.json();
+    console.log("temp:", users.Users);
+    return users.Users;
+  } catch (err) {
+    console.error("Error fetching user list:", err);
+    return [];
+  }
+}
+
+async function updateOnlineUsers(onlineUsers) {
   const container = document.getElementById("onlineUsers");
   container.innerHTML = "";
 
   const userList = document.createElement("ul");
 
+  allUsers = await fetchUsers();
+
+  console.log("All users length:", allUsers.length);
   allUsers.forEach((user) => {
+    console.log("User:", user);
     if (user.id !== currentUserID) {
       const listItem = document.createElement("li");
       const btn = document.createElement("button");
