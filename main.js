@@ -1,17 +1,19 @@
-//let chatTo = null;
-let currentUserID=null;
+let socket;
+let currentUserID = null;
+let currentChatUserId = null;
+let chatHistory = {};
 let currentPage = 0;
 const messagesPerPage = 10;
 let isLoadingMessages = false;
+let onlineUsers = [];
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Set global variables from hidden input fields
   const input = document.getElementById("currentUserID");
   if (input) {
     currentUserID = input.value;
   }
   window.currentUserNickname = document.getElementById("currentUserNickname")?.value;
-  checkAuth(); // Check session on page load
+  checkAuth();
 });
 
 window.toggleView = function () {
@@ -78,7 +80,6 @@ function scrollToNewPost() {
   document.getElementById("postForm")?.scrollIntoView({ behavior: "smooth" });
 }
 
-
 async function login() {
   const identifier = document.getElementById("login-identifier").value;
   const password = document.getElementById("login-password").value;
@@ -93,7 +94,7 @@ async function login() {
   if (res.ok) {
     const user = await res.json();
     console.log("👤 Logged in user:", user);
-    currentUserID = user.id; // Set currentUserID
+    currentUserID = user.id;
     connectWebSocket(user.id);
     showForum();
   } else {
@@ -275,65 +276,53 @@ async function submitComment(event, postId) {
 
 // --- WebSocket & Chat ---
 
-let socket;
-//let currentUserID = null;
-let chatTo = null;
-let currentChatUserId = null;
-let chatHistory = {}; // ✅ Stores messages by userId
-
 function connectWebSocket(userID) {
   socket = new WebSocket("ws://" + window.location.host + "/ws?user=" + userID);
 
   socket.onopen = function() {
-    console.log("WebSocket connection established!"); // Log connection status
+    console.log("WebSocket connection established!");
   };
 
-  socket.onmessage = function (event) {
-    console.log("📡 Raw WebSocket event:", event.data); // Add this line
-  
+  socket.onmessage = function(event) {
     const data = JSON.parse(event.data);
-  
+
     if (data.type === "online_users") {
       updateOnlineUsers(data.users);
     } else if (data.type === "newMessage") {
-      // Append the incoming message to the chat if relevant
       if (
         currentChatUserId && (
           data.payload.from_user === currentChatUserId ||
           data.payload.to_user === currentChatUserId
         )
       ) {
-        renderMessages([data.payload], true); // true = append
+        if (!chatHistory[currentChatUserId]) {
+          chatHistory[currentChatUserId] = [];
+        }
+        chatHistory[currentChatUserId].push(data.payload);
+        renderMessages([data.payload], true);
+      } else {
+        highlightUserInSidebar(data.payload.from_user);
       }
-    } else if (data.from) {
-      // Optional: legacy message handling fallback
-      handleIncomingMessage(data);
     }
   };
 
-  socket.onclose = function () {
-    console.log("WebSocket connection closed"); // Log when connection closes
-    document.getElementById("chat").style.display = "none";
+  socket.onclose = function() {
+    console.log("WebSocket connection closed");
+    document.getElementById("chatModal").style.display = "none";
   };
 }
 
-let onlineUsers = [];
-
 function updateOnlineUsers(users) {
-  onlineUsers = users; // ✅ Save the list globally for later reference
+  onlineUsers = users;
 
   const container = document.getElementById("onlineUsers");
   container.innerHTML = "";
 
-  // Create an unordered list element
   const userList = document.createElement("ul");
 
   users.forEach((user) => {
     if (user.id !== currentUserID) {
-      // Create a list item
       const listItem = document.createElement("li");
-
-      // Create a button
       const btn = document.createElement("button");
       btn.className = "pill-button";
       btn.textContent = user.nickname;
@@ -341,98 +330,16 @@ function updateOnlineUsers(users) {
       btn.onclick = () => {
         openChatWith(user.id, user.nickname);
         clearNotification(user.id);
-      }; // Properly close the onclick function
-
-      // Append the button to the list item
+      };
       listItem.appendChild(btn);
-
-      // Append the list item to the unordered list
       userList.appendChild(listItem);
     }
   });
 
-  // Append the user list to the container
   container.appendChild(userList);
 }
 
-function handleIncomingMessage(data) {
-  console.log("📥 Received message data:", data);
-
-  // ✅ Ignore own message when it echoes back
-  if (data.from == currentUserID) {
-    console.log("🚫 Ignoring self-sent message.");
-    return;
-  }
-
-  const message = {
-    SenderID: data.from,
-    ReceiverID: data.to,
-    Content: data.content,
-    Timestamp: data.timestamp, // ✅ Use timestamp sent from backend
-    SenderNickname: getNicknameById(data.from)
-  };
-
-  if (!chatHistory[data.from]) {
-    console.log("🗃️ Creating new history for user:", data.from);
-    chatHistory[data.from] = [];
-  }
-  chatHistory[data.from].push(message);
-  console.log("💾 Message stored. Chat history with user", data.from, "now has", chatHistory[data.from].length, "messages.");
-
-  console.log("📌 Currently chatting with user ID:", chatTo);
-  console.log("📨 Incoming message is from user ID:", data.from);
-
-  if (chatTo !== data.from) {
-    console.log("✨ Not currently chatting with this user. Highlighting their name.");
-    highlightUserInSidebar(data.from);
-    return;
-  }
-
-  console.log("📝 Appending message to open chat:", message);
-  appendChatMessage(message);
-}
-
-function highlightUserInSidebar(userId) {
-  const userBtn = document.getElementById(`chat-user-${userId}`);
-  if (userBtn) {
-    userBtn.classList.add("highlight"); 
-  }
-}
-
-function clearNotification(userId) {
-  const userBtn = document.getElementById(`chat-user-${userId}`);
-  if (userBtn) {
-    userBtn.classList.remove("highlight");
-  }
-}
-
-function sendMessage(to, content) {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    const timestamp = new Date().toISOString(); // Current timestamp when sending a message
-    const message = {
-      SenderID: currentUserID,
-      ReceiverID: to,
-      Content: content,
-      timestamp: timestamp // Add timestamp to the message object
-    };
-
-    socket.send(JSON.stringify({ to, content, timestamp }));
-
-    // ✅ Save to chat history
-    if (!chatHistory[to]) {
-      chatHistory[to] = [];
-    }
-    chatHistory[to].push(message);
-
-    appendChatMessage(message);
-  } else {
-    console.log("WebSocket state:", socket.readyState); // Log socket state
-    alert("WebSocket not connected");
-  }
-}
-
 function openChatWith(userId, nickname) {
-  chatTo = userId;
   currentChatUserId = userId;
   currentPage = 0;
 
@@ -461,7 +368,7 @@ function openChatWith(userId, nickname) {
     if (chatBox.scrollTop === 0 && !isLoadingMessages) {
       isLoadingMessages = true;
       document.getElementById("loadingOlder").style.display = "block";
-  
+
       currentPage++;
       loadMessagesPage(userId, currentPage, true).finally(() => {
         isLoadingMessages = false;
@@ -471,137 +378,100 @@ function openChatWith(userId, nickname) {
   }, 300);
 }
 
-async function loadMoreMessages(userId) {
-  isLoadingMessages = true;
-
-  const chatBox = document.getElementById("chat-box");
-  const previousScrollHeight = chatBox.scrollHeight;
-
-  const res = await fetch(`/api/messages?with=${userId}&page=${currentPage}&limit=${messagesPerPage}`, {
-    credentials: "include"
-  });
-
-  if (!res.ok) {
-    console.warn("Failed to fetch chat history");
-    isLoadingMessages = false;
-    return;
-  }
-
-  const messages = await res.json();
-  if (messages.length === 0) {
-    isLoadingMessages = false;
-    return; // No more messages to load
-  }
-
-  messages.forEach(msg => {
-    const message = {
-      SenderID: msg.sender_id,
-      ReceiverID: msg.receiver_id,
-      Content: msg.content,
-      Timestamp: new Date(msg.timestamp).toLocaleString(),
-      SenderNickname: getNicknameById(msg.sender_id) || "Unknown"
-    };
-    appendChatMessage(message); 
-  });
-
-  currentPage++; // Prepare for next batch
-  isLoadingMessages = false;
-
-  // Maintain scroll position
-  chatBox.scrollTop = chatBox.scrollHeight - previousScrollHeight;
-}
-
-function loadMessagesPage(userId, page, append) {
-  const offset = page * 10;
-  return fetch(`/api/messages?from=${currentUserID}&to=${userId}&offset=${offset}`)
-    .then((res) => {
-      if (!res.ok) throw new Error("Failed to fetch messages");
-      return res.json();
-    })
-    .then((messages) => {
-      renderMessages(messages, append);
-    })
-    .catch((err) => {
-      console.error("Failed to load messages:", err);
+async function loadMessagesPage(userId, page, append) {
+  const offset = page * messagesPerPage;
+  try {
+    const res = await fetch(`/api/messages?from=${currentUserID}&to=${userId}&offset=${offset}`, {
+      credentials: "include"
     });
+    if (!res.ok) throw new Error("Failed to fetch messages");
+    const messages = await res.json();
+
+    if (!chatHistory[userId]) {
+      chatHistory[userId] = [];
+    }
+    if (append) {
+      chatHistory[userId] = [...messages, ...chatHistory[userId]];
+    } else {
+      chatHistory[userId] = messages;
+    }
+
+    chatHistory[userId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    renderMessages(chatHistory[userId], append);
+  } catch (err) {
+    console.error("Failed to load messages:", err);
+  }
 }
 
 function handleSendMessage() {
   const messageInput = document.getElementById("chatInput");
   const messageContent = messageInput.value.trim();
 
-  if (!messageContent) return;
+  if (!messageContent || !currentChatUserId) return;
 
   const newMessage = {
     from_user: currentUserID,
-    from_user_nickname: currentUserNickname, // Ensure this is globally available
+    from_user_nickname: window.currentUserNickname,
     to_user: currentChatUserId,
     content: messageContent,
     created_at: new Date().toISOString(),
   };
 
-  // Send the message through WebSocket
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(newMessage));
   }
 
-  // Render it locally immediately (optimistic UI)
-  renderMessages([newMessage], true); // append = true
+  if (!chatHistory[currentChatUserId]) {
+    chatHistory[currentChatUserId] = [];
+  }
+  chatHistory[currentChatUserId].push(newMessage);
+  chatHistory[currentChatUserId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  messageInput.value = '';
+  renderMessages([newMessage], true);
+  messageInput.value = "";
   messageInput.focus();
 }
 
-function appendChatMessage(message, prepend = false) {
-  const chatMessages = document.getElementById("chatMessages");
+function renderMessages(messages, append = false) {
+  const chatBox = document.getElementById("chatMessages");
+  if (!chatBox) return;
 
-  const isCurrentChat =
-    (message.SenderID === currentChatUserId && message.ReceiverID === currentUserID) ||
-    (message.SenderID === currentUserID && message.ReceiverID === currentChatUserId);
+  messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  if (!isCurrentChat) {
-    return;
-  }
+  const elements = messages.map((msg) => {
+    const div = document.createElement("div");
+    div.className = msg.from_user === currentUserID ? "chat-message sent" : "chat-message received";
 
-  const isFromCurrentUser = message.SenderID === currentUserID;
+    const timestamp = new Date(msg.created_at).toLocaleString();
+    const sender = document.createElement("div");
+    sender.className = "chat-meta";
+    sender.innerHTML = `<strong>${msg.from_user_nickname || "Unknown"}</strong> • <span style="color: gray; font-size: 0.75em;">${timestamp}</span>`;
 
-  const messageEl = document.createElement("div");
-  messageEl.className = isFromCurrentUser ? "chat-msg self" : "chat-msg other";
+    const content = document.createElement("div");
+    content.className = "chat-text";
+    content.textContent = msg.content;
 
-  const senderLabel = document.createElement("span");
-  senderLabel.className = isFromCurrentUser ? "me" : "other-user";
+    div.appendChild(sender);
+    div.appendChild(content);
+    return div;
+  });
 
-  let timestamp = new Date(message.timestamp);
-  if (isNaN(timestamp)) timestamp = new Date();
-
-  const formattedTimestamp = timestamp.toLocaleString();
-  const nickname = getNicknameById(message.SenderID) || "User";
-  senderLabel.textContent = isFromCurrentUser
-    ? `Me: ${formattedTimestamp}`
-    : `${nickname}: ${formattedTimestamp}`;
-
-  const contentSpan = document.createElement("span");
-  contentSpan.textContent = message.Content;
-
-  messageEl.appendChild(senderLabel);
-  messageEl.appendChild(contentSpan);
-
-  if (prepend) {
-    chatMessages.insertBefore(messageEl, chatMessages.firstChild);
+  if (append) {
+    const oldScrollHeight = chatBox.scrollHeight;
+    elements.forEach((el) => chatBox.appendChild(el));
+    if (chatBox.scrollTop + chatBox.clientHeight >= oldScrollHeight - 50) {
+      scrollChatToBottom();
+    }
   } else {
-    chatMessages.appendChild(messageEl);
+    chatBox.innerHTML = "";
+    elements.forEach((el) => chatBox.appendChild(el));
     scrollChatToBottom();
   }
 }
 
-function prependChatMessage(msg) {
-  const chatBox = document.getElementById("chat-box");
-
-  const p = document.createElement("p");
-  p.textContent = `${msg.SenderNickname}: ${msg.Content}`;
-  p.className = msg.SenderID === currentUserID ? "chat-message me" : "chat-message them";
-
-  chatBox.prepend(p);
+function scrollChatToBottom() {
+  const chatMessages = document.getElementById("chatMessages");
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 function debounce(fn, delay) {
@@ -617,144 +487,20 @@ function getNicknameById(userId) {
   return user ? user.nickname : "Unknown";
 }
 
-function scrollChatToBottom() {
-  const chatMessages = document.getElementById("chatMessages");
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+function highlightUserInSidebar(userId) {
+  const userBtn = document.getElementById(`chat-user-${userId}`);
+  if (userBtn) {
+    userBtn.classList.add("highlight");
+  }
 }
 
-function openChatModal(username) {
-  document.getElementById("chatWith").textContent = username;
-  document.getElementById("chatModal").style.display = "flex";
+function clearNotification(userId) {
+  const userBtn = document.getElementById(`chat-user-${userId}`);
+  if (userBtn) {
+    userBtn.classList.remove("highlight");
+  }
 }
 
 function closeChatModal() {
   document.getElementById("chatModal").style.display = "none";
-}
-
-function renderOnlineUsers(users) {
-  const container = document.getElementById("onlineUsers");
-  container.innerHTML = "";
-  users.forEach(user => {
-    const userDiv = document.createElement("div");
-    userDiv.textContent = user.nickname;
-    userDiv.onclick = () => openChatModal(user.nickname);
-    container.appendChild(userDiv);
-  });
-}
-
-let messageOffset = 0;
-let isLoading = false;
-let selectedUserId = null;
-
-async function loadMessages(userId, offset = 0) {
-  isLoading = true;
-  const res = await fetch(`/messages?from=${currentUserId}&to=${userId}&offset=${offset}`);
-  const messages = await res.json();
-
-  const container = document.querySelector("#message-container");
-
-  // Reverse the order of messages so that oldest comes first
-  messages.reverse().forEach(msg => {
-    const msgEl = document.createElement("div");
-    msgEl.textContent = `${msg.from === currentUserId ? "You" : "Them"}: ${msg.content}`;
-    container.prepend(msgEl); // Prepend for loading history (oldest first)
-  });
-
-  if (messages.length > 0) {
-    messageOffset += 10; // Increase offset for the next batch of messages
-  }
-  isLoading = false;
-}
-
-document.querySelectorAll(".user-list-item").forEach(item => {
-  item.addEventListener("click", () => {
-    selectedUserId = item.dataset.userid;
-    messageOffset = 0;
-    document.querySelector("#message-container").innerHTML = ""; // Clear previous messages
-    loadMessages(selectedUserId);
-  });
-});
-
-// Throttled scroll handler for loading more messages when scrolling up
-let lastCall = 0;
-document.querySelector("#message-container").addEventListener("scroll", () => {
-  const container = document.querySelector("#message-container");
-  if (container.scrollTop < 50 && !isLoading) {
-    const now = Date.now();
-    if (now - lastCall > 500) { // throttle 500ms
-      loadMessages(selectedUserId, messageOffset);
-      lastCall = now;
-    }
-  }
-});
-
-async function fetchChatHistory(userId, page = 0) {
-  isLoadingMessages = true;
-  try {
-    const res = await fetch(`/api/messages?with=${userId}&page=${page}&limit=${messagesPerPage}`, {
-      credentials: "include"
-    });
-
-    if (res.ok) {
-      const messages = await res.json();
-      const isInitialLoad = page === 0;
-
-      if (!chatHistory[userId]) chatHistory[userId] = [];
-
-      if (isInitialLoad) {
-        chatHistory[userId] = messages;
-      } else {
-        chatHistory[userId] = [...messages, ...chatHistory[userId]];
-      }
-
-      renderMessages(chatHistory[userId], !isInitialLoad);
-
-      if (isInitialLoad) scrollToBottom();
-    } else {
-      console.error("Failed to load messages:", await res.text());
-    }
-  } catch (err) {
-    console.error("Error loading messages:", err);
-  } finally {
-    isLoadingMessages = false;
-  }
-}
-
-function renderMessages(messages, append = false) {
-  const chatBox = document.getElementById("chatMessages");
-  if (!chatBox) return;
-
-  const elements = messages.map((msg) => {
-    const div = document.createElement("div");
-    div.className = msg.from_user === currentUserID ? "chat-message sent" : "chat-message received";
-
-    const timestamp = new Date(msg.created_at).toLocaleString();
-    const sender = document.createElement("div");
-    sender.className = "chat-meta";
-    sender.innerHTML = `<strong>${msg.from_user_nickname}</strong> • <span style="color: gray; font-size: 0.75em;">${timestamp}</span>`;
-
-    const content = document.createElement("div");
-    content.className = "chat-text";
-    content.textContent = msg.content;
-
-    div.appendChild(sender);
-    div.appendChild(content);
-
-    return div;
-  });
-
-  if (append) {
-    const oldScrollHeight = chatBox.scrollHeight;
-    elements.forEach((el) => chatBox.insertBefore(el, chatBox.firstChild));
-    const newScrollHeight = chatBox.scrollHeight;
-    chatBox.scrollTop += newScrollHeight - oldScrollHeight; // preserve scroll position
-  } else {
-    chatBox.innerHTML = "";
-    elements.forEach((el) => chatBox.appendChild(el));
-  }
-}
-
-function scrollToBottom() {
-  const chatBox = document.getElementById("chatMessages");
-  chatBox.scrollTop = chatBox.scrollHeight;
 }
