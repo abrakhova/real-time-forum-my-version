@@ -21,6 +21,7 @@ func main() {
 
 	// Serve JS files
 	fs := http.FileServer(http.Dir("."))
+	mux.Handle("/chat.js", fs)
 	mux.Handle("/main.js", fs)
 
 	// API routes

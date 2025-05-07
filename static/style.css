@@ -327,6 +327,16 @@ a:hover {
   color: var(--text);
 }
 
+.post-category{
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.post-date{
+  font-weight: 300;
+  color: var(--text);
+}
+
 .post-time {
   font-size: 0.9rem;
   color: var(--text-light);

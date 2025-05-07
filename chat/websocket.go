@@ -145,6 +145,7 @@ func readPump(c *Client) {
 			sender.Send <- encoded
 		}
 		clientsMu.Unlock()
+		broadcastOnlineUsers()
 	}
 }
 
