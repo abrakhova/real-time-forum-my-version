@@ -20,128 +20,75 @@
       </nav>
     </header>
 
-    <!-- Modals -->
-    <div id="createPostModal" class="modal">
-      <div class="modal-content">
-        <span class="close" onclick="closePostModal()">×</span>
-        <h2>Create New Post</h2>
-        <form onsubmit="event.preventDefault(); createPost()">
-          <div class="input-group">
-            <input type="text" id="post-title" placeholder="Post Title" required>
-          </div>
-          <div class="input-group">
-            <textarea id="post-content" placeholder="Write your post..." rows="5" required></textarea>
-          </div>
-          <button type="submit" class="new-post">Create Post</button>
-        </form>
-      </div>
+    <!-- Auth Forms (hidden by default) -->
+    
+      <div class="container">
+        <div class = "categories">
+      <h3>Categories</h3>
     </div>
-
-    <div id="viewPostModal" class="modal">
-      <div class="modal-content">
-        <span class="close" onclick="closeViewPostModal()">×</span>
-        <div class="post-card">
-          <div class="post-header">
-            <div class="post-avatar">
-              <i class="fas fa-user"></i>
-            </div>
-            <div class="post-meta">
-              <div class="post-author" id="view-post-author"></div>
-            </div>
-          </div>
-          <div class="post-content">
-            <h3 id="view-post-title"></h3>
-            <p id="view-post-content"></p>
-          </div>
-          <form id="view-comment-form" class="post-actions">
-            <div class="input-group">
-              <input type="text" id="view-comment-input" placeholder="Add a comment...">
-            </div>
-            <button type="submit" class="icon-button">Comment</button>
-          </form>
-          <div id="view-post-comments"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="container">
-      <div class="categories">
-        <h3>Categories</h3>
-        <ul>
-          <li class="category-item">General</li>
-          <!-- Add more categories as needed -->
-        </ul>
-      </div>
-
-      <div class="feed">
-        <div id="auth">
-          <div id="loginForm">
-            <div class="input-group">
-              <input id="login-identifier" placeholder="Nickname or Email" />
-            </div>
-            <div class="input-group">
-              <input id="login-password" type="password" placeholder="Password" />
-            </div>
-            <button onclick="login()">Login</button>
-            <a href="#" class="pill-button" onclick="toggleView(); return false;">Don't have an account? Register</a>
-          </div>
-
-          <div id="registerForm" style="display: none;">
-            <div class="input-group">
-              <input id="reg-nickname" placeholder="Nickname" />
-            </div>
-            <div class="input-group">
-              <input id="reg-email" placeholder="Email" />
-            </div>
-            <div class="input-group">
-              <input id="reg-password" type="password" placeholder="Password" />
-            </div>
-            <div class="input-group">
-              <input id="reg-first-name" placeholder="First Name" />
-            </div>
-            <div class="input-group">
-              <input id="reg-last-name" placeholder="Last Name" />
-            </div>
-            <div class="input-group">
-              <input id="reg-gender" placeholder="Gender" />
-            </div>
-            <div class="input-group">
-              <input id="reg-age" placeholder="Age" />
-            </div>
-            <button onclick="register()">Register</button>
-            <p onclick="toggleView()">Already have an account? Login</p>
-          </div>
+    <div class = "feed">
+      <div id="auth" style="display: none;">
+        <div id="loginForm">
+          <input id="login-identifier" placeholder="Nickname or Email" />
+          <input id="login-password" type="password" placeholder="Password" />
+          <button onclick="login()">Login</button>
+          <a href="#" class="pill-button" onclick="toggleView(); return false;">Don't have an account? Register</a>
         </div>
 
-        <div id="forum" style="display: none;">
-          <h2>Welcome to the Forum</h2>
-          <p>Connect with others and share your thoughts.</p>
-          <div id="postContainer"></div>
+        <div id="registerForm" style="display: none;">
+          <input id="reg-nickname" placeholder="Nickname" />
+          <input id="reg-email" placeholder="Email" />
+          <input id="reg-password" type="password" placeholder="Password" />
+          <input id="reg-first-name" placeholder="First Name" />
+          <input id="reg-last-name" placeholder="Last Name" />
+          <input id="reg-gender" placeholder="Gender" />
+          <input id="reg-age" placeholder="Age" />
+          <button onclick="register()">Register</button>
+          <p onclick="toggleView()">Already have an account? Login</p>
         </div>
       </div>
+   
+    
 
-      <div class="chat-sidebar">
-        <h3>Users</h3>
-        <div id="onlineUsers"></div>
+    <!-- Forum Content (hidden by default) -->
+    <div id="forum" style="display: none;">
+      <h2>Welcome to the Forum</h2>
+      <p>Connect with others and share your thoughts.</p>
+
+      <div id="postForm">
+        <input id="post-title" placeholder="Post Title" />
+        <textarea id="post-content" placeholder="Write your post..."></textarea>
+        <button onclick="createPost()">Post</button>
       </div>
+
+      <div id="postContainer"></div>
+
     </div>
 
-    <!-- Chat Modal -->
-    <div id="chatModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <span class="close-button" onclick="closeChatModal()">&times;</span>
-        <h3>Private Chat with <span id="chatWith"></span></h3>
-        <div id="chatMessages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
-        <div id="loadingOlder" style="display: none; text-align: center; font-size: 0.8rem;">Loading older messages...</div>
-        <input type="text" id="chatInput" placeholder="Type a message..." style="width: 70%;" />
-        <button onclick="handleSendMessage()">Send</button>
-      </div>
     </div>
 
-    <!-- Hidden inputs for JS access -->
-    <!-- <input type="hidden" id="currentUserID" value="{{.CurrentUserID}}">
-    <input type="hidden" id="currentUserNickname" value="{{.CurrentUserNickname}}"> -->
+  
+      <!-- Chat Modal -->
+<div id="chatModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <span class="close-button" onclick="closeChatModal()">&times;</span>
+    <h3>Private Chat with <span id="chatWith"></span></h3>
+    <div id="chatMessages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
+    <div id="loadingOlder" style="display: none; text-align: center; font-size: 0.8rem;">Loading older messages...</div>
+    <input type="text" id="chatInput" placeholder="Type a message..." style="width: 70%;" />
+    <button onclick="handleSendMessage()">Send</button>
+  </div>
+</div>
+    
+
+    <div class="chat-sidebar">
+      <h3>Users</h3>
+      <div id="onlineUsers"></div>
+    </div>
+  </div>
+  <!-- Hidden inputs for JS access -->
+  <!-- <input type="hidden" id="currentUserID" value="{{.CurrentUserID}}">
+  <input type="hidden" id="currentUserNickname" value="{{.CurrentUserNickname}}"> -->
     <script src="main.js"></script>
   </body>
 </html>
