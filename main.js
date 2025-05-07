@@ -185,14 +185,26 @@ function checkAuth() {
 function showForum() {
   const forum = document.getElementById("forum");
   const auth = document.getElementById("auth");
+  const categories = document.querySelector(".categories");
+  const chatSidebar = document.querySelector(".chat-sidebar");
+  const container = document.querySelector(".container");
   if (auth) auth.style.display = "none";
   if (forum) forum.style.display = "block";
+  if (categories) categories.style.display = "block";
+  if (chatSidebar) chatSidebar.style.display = "block";
+  if (container) container.classList.remove("auth-only");
   loadPosts();
 }
 
 function showAuth(showRegister = false) {
   document.getElementById("auth").style.display = "block";
   document.getElementById("forum").style.display = "none";
+  const categories = document.querySelector(".categories");
+  const chatSidebar = document.querySelector(".chat-sidebar");
+  const container = document.querySelector(".container");
+  if (categories) categories.style.display = "none";
+  if (chatSidebar) chatSidebar.style.display = "none";
+  if (container) container.classList.add("auth-only");
 
   document.getElementById("loginForm").style.display = showRegister ? "none" : "block";
   document.getElementById("registerForm").style.display = showRegister ? "block" : "none";

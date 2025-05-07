@@ -142,7 +142,7 @@ a:hover {
 .input-group textarea {
   width: 100%;
   padding: 10px;
-  font-size: 16px;
+  font-size: 1rem;
   border: 1px solid var(--text-light);
   border-radius: 5px;
   background: var(--background);
@@ -188,6 +188,67 @@ a:hover {
   gap: 2rem;
 }
 
+.container.auth-only {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: calc(100vh - 80px);
+  grid-template-columns: none;
+}
+
+.container.auth-only .categories,
+.container.auth-only .chat-sidebar {
+  display: none;
+}
+
+.container.auth-only .feed {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 2rem;
+}
+
+.container.auth-only .feed #auth {
+  width: 100%;
+}
+
+.container.auth-only .feed #auth > div {
+  background: var(--card-background);
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+.container.auth-only .feed #auth .input-group {
+  margin-bottom: 1rem;
+}
+
+.container.auth-only .feed #auth button {
+  background: var(--primary);
+  color: var(--card-background);
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.3s ease;
+}
+
+.container.auth-only .feed #auth button:hover {
+  background: var(--accent);
+}
+
+.container.auth-only .feed #auth a,
+.container.auth-only .feed #auth p {
+  text-align: center;
+  margin-top: 1rem;
+  cursor: pointer;
+}
+
 .categories {
   position: sticky;
   top: 90px;
@@ -215,6 +276,10 @@ a:hover {
   background: var(--primary);
   color: white;
   font-weight: bold;
+}
+
+.feed {
+  display: block;
 }
 
 .feed h2 {
@@ -449,5 +514,17 @@ a:hover {
 @media (max-width: 1024px) {
   .container {
     grid-template-columns: 1fr;
+  }
+
+  .container.auth-only {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: calc(100vh - 100px);
+  }
+
+  .container.auth-only .feed {
+    max-width: 400px;
+    margin-top: 2rem;
   }
 }
