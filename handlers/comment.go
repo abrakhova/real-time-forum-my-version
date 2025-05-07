@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"real-time-forum/database"
@@ -27,6 +28,8 @@ func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
+
+	fmt.Println("Inserting comment:", comment)
 
 	stmt := `INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)`
 	_, err = database.DB.Exec(stmt, comment.PostID, user.ID, comment.Content)

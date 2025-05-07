@@ -205,7 +205,7 @@ function renderPost(post) {
 
   const author = document.createElement("p");
   author.classList.add("author");
-  author.textContent = `By: ${post.nickname || "Anonymous"}`;
+  author.textContent = `By: ${post.author || "Anonymous"}`;
 
   const commentForm = document.createElement("form");
   commentForm.onsubmit = (e) => submitComment(e, post.id);
@@ -243,6 +243,8 @@ async function loadComments(postId) {
   const commentsContainer = document.getElementById(`comments-${postId}`);
   commentsContainer.innerHTML = "";
 
+  console.log("Comments for post", postId, ":", comments);
+
   if (Array.isArray(comments)) {
     comments.forEach(comment => {
       const p = document.createElement("p");
@@ -254,9 +256,11 @@ async function loadComments(postId) {
   }
 }
 
-async function submitComment(event, postId) {
+async function submitComment(event, post_id) {
+  console.log("submitComment() called for postId:", post_id);
+
   event.preventDefault();
-  const input = document.getElementById(`comment-input-${postId}`);
+  const input = document.getElementById(`comment-input-${post_id}`);
   const content = input.value.trim();
   if (!content) return;
 
@@ -264,12 +268,12 @@ async function submitComment(event, postId) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ postId, content })
+    body: JSON.stringify({ post_id, content })
   });
 
   if (res.ok) {
     input.value = "";
-    loadComments(postId);
+    loadComments(post_id);
   } else {
     alert("Failed to submit comment");
   }
