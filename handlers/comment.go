@@ -50,21 +50,32 @@ func GetCommentsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := database.DB.Query(`
-		SELECT id, post_id, user_id, content, created_at FROM comments WHERE post_id = ? ORDER BY created_at ASC
-	`, postID)
+        SELECT c.id, c.post_id, c.user_id, c.content, c.created_at, u.nickname
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at ASC
+    `, postID)
 	if err != nil {
 		http.Error(w, "Failed to query comments", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	comments := make([]models.Comment, 0) // ✅ always non-nil
+	comments := make([]models.Comment, 0)
 	for rows.Next() {
 		var c models.Comment
-		if err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Content, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Content, &c.CreatedAt, &c.Nickname); err != nil {
+			log.Printf("Failed to scan comment: %v", err)
 			continue
 		}
 		comments = append(comments, c)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("Row iteration error: %v", err)
+		http.Error(w, "Error processing comments", http.StatusInternalServerError)
+		return
 	}
 
 	json.NewEncoder(w).Encode(comments)

@@ -42,6 +42,7 @@ func createTables() {
 		user_id INTEGER,
 		title TEXT NOT NULL,
 		content TEXT NOT NULL,
+        category TEXT NOT NULL CHECK(category IN ('General', 'Food', 'Travel')),
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY(user_id) REFERENCES users(id)
 	);`

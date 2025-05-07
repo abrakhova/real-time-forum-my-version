@@ -26,8 +26,8 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 
 	post.UserID = user.ID
 
-	stmt := `INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)`
-	result, err := database.DB.Exec(stmt, post.UserID, post.Title, post.Content)
+	stmt := `INSERT INTO posts (user_id, title, content, category) VALUES (?, ?, ?, ?)`
+	result, err := database.DB.Exec(stmt, post.UserID, post.Title, post.Content, post.Category)
 	if err != nil {
 		log.Println("DB error creating post:", err) // Add this
 		http.Error(w, "Failed to create post", http.StatusInternalServerError)
@@ -40,7 +40,7 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(post)
 }
 
-func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
+/* func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("GetPostsHandler called")
 	w.Header().Set("Content-Type", "application/json") // Add this
 
@@ -48,7 +48,7 @@ func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
 	posts := []models.PostResponse{}
 
 	rows, err := database.DB.Query(`
-		SELECT posts.id, posts.title, posts.content, posts.created_at, users.nickname
+		SELECT posts.id, posts.title, posts.content, posts.created_at, posts.category, users.nickname
 		FROM posts
 		INNER JOIN users ON posts.user_id = users.id
 		ORDER BY posts.created_at DESC
@@ -61,7 +61,7 @@ func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var p models.PostResponse
-		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Author)
+		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Category, &p.Author)
 		if err != nil {
 			http.Error(w, "Failed to scan post", http.StatusInternalServerError)
 			log.Println("Error scanning post:", err)
@@ -71,5 +71,59 @@ func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Now it's always either [] or [items], never null
+	json.NewEncoder(w).Encode(posts)
+} */
+
+func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("GetPostsHandler called")
+	w.Header().Set("Content-Type", "application/json")
+
+	// Initialize the posts slice
+	posts := []models.PostResponse{}
+
+	// Get the category query parameter
+	category := r.URL.Query().Get("category")
+	query := `
+        SELECT posts.id, posts.title, posts.content, posts.created_at, posts.category, users.nickname
+        FROM posts
+        INNER JOIN users ON posts.user_id = users.id
+    `
+	var args []interface{}
+
+	// Modify query based on category filter
+	if category != "" {
+		query += ` WHERE posts.category = $1`
+		args = append(args, category)
+	}
+	query += ` ORDER BY posts.created_at DESC`
+
+	// Execute the query
+	rows, err := database.DB.Query(query, args...)
+	if err != nil {
+		http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
+		log.Println("Error querying posts:", err)
+		return
+	}
+	defer rows.Close()
+
+	// Scan the results
+	for rows.Next() {
+		var p models.PostResponse
+		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Category, &p.Author)
+		if err != nil {
+			log.Println("Error scanning post:", err)
+			continue // Skip bad row, continue with others
+		}
+		posts = append(posts, p)
+	}
+
+	// Check for errors from iterating over rows
+	if err := rows.Err(); err != nil {
+		http.Error(w, "Error processing posts", http.StatusInternalServerError)
+		log.Println("Error iterating rows:", err)
+		return
+	}
+
+	// Encode and send the response
 	json.NewEncoder(w).Encode(posts)
 }

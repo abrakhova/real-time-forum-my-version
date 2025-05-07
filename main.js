@@ -61,24 +61,74 @@ function updateNav(loggedIn) {
   const nav = document.getElementById("nav-actions");
   nav.innerHTML = "";
 
+  console.log("Updating nav, loggedIn:", loggedIn);
+
   if (loggedIn) {
     nav.innerHTML = `
-      <button class="new-post" id="new-post" onclick="scrollToNewPost()">New Post</button>
-      <a href="/profile-page" class="pill-button">Profile</a>
-      <a href="/about" class="pill-button">About</a>
+      <button class="new-post" onclick="openPostModal()">New Post</button>
       <a id="logout-btn" href="javascript:void(0);" class="pill-button" onclick="logout()">Log out</a>
     `;
   } else {
     nav.innerHTML = `
       <a href="/login" class="pill-button" onclick="showAuth(); return false;">Log in</a>
       <a href="/register" class="pill-button" onclick="showAuth(true); return false;">Register</a>
-      <a href="/about" class="pill-button">About</a>
     `;
   }
 }
 
-function scrollToNewPost() {
-  document.getElementById("postForm")?.scrollIntoView({ behavior: "smooth" });
+function openPostModal() {
+  const modal = document.getElementById("createPostModal");
+  if (modal) {
+    modal.style.display = "block";
+  } else {
+    console.error("Create post modal not found");
+  }
+}
+
+function closePostModal() {
+  const modal = document.getElementById("createPostModal");
+  if (modal) {
+    modal.style.display = "none";
+    const titleInput = document.getElementById("post-title");
+    const contentInput = document.getElementById("post-content");
+    if (titleInput) titleInput.value = "";
+    if (contentInput) contentInput.value = "";
+  }
+}
+
+function openViewPostModal(postId, title, content, author) {
+  const modal = document.getElementById("viewPostModal");
+  if (!modal) {
+    console.error("View post modal not found");
+    return;
+  }
+
+  const titleElement = document.getElementById("view-post-title");
+  const authorElement = document.getElementById("view-post-author");
+  const contentElement = document.getElementById("view-post-content");
+  const commentForm = document.getElementById("view-comment-form");
+
+  if (!titleElement || !authorElement || !contentElement || !commentForm) {
+    console.error("One or more modal elements not found");
+    return;
+  }
+
+  titleElement.textContent = title;
+  authorElement.textContent = `By: ${author || "Anonymous"}`;
+  contentElement.textContent = content;
+  commentForm.onsubmit = (e) => submitComment(e, postId);
+
+  modal.style.display = "block";
+  loadComments(postId);
+}
+
+function closeViewPostModal() {
+  const modal = document.getElementById("viewPostModal");
+  if (modal) {
+    modal.style.display = "none";
+    const commentsContainer = document.getElementById("view-post-comments");
+    if (commentsContainer) commentsContainer.innerHTML = "";
+  }
 }
 
 async function login() {
@@ -96,6 +146,7 @@ async function login() {
     const user = await res.json();
     console.log("👤 Logged in user:", user);
     currentUserID = user.id;
+    updateNav(true);
     connectWebSocket(user.id);
     showForum();
   } else {
@@ -123,6 +174,7 @@ function checkAuth() {
       connectWebSocket(user.id);
       updateNav(true);
       showForum();
+      loadUserList();
     })
     .catch(() => {
       updateNav(false);
@@ -150,6 +202,12 @@ async function createPost() {
   console.log("createPost() called");
   const titleInput = document.getElementById("post-title");
   const contentInput = document.getElementById("post-content");
+  const category = document.getElementById('post-category').value;
+
+  if (!titleInput || !contentInput) {
+    console.error("Post form elements not found");
+    return;
+  }
 
   const title = titleInput.value.trim();
   const content = contentInput.value.trim();
@@ -159,21 +217,41 @@ async function createPost() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ title, content })
+    body: JSON.stringify({ title, content, category })
   });
 
   if (res.ok) {
     alert("Post created!");
-    titleInput.value = "";
-    contentInput.value = "";
+    closePostModal();
     loadPosts();
   } else {
     alert("Failed to create post");
   }
 }
 
-async function loadPosts() {
+/* async function loadPosts() {
   const res = await fetch("/api/posts", { credentials: "include" });
+  if (!res.ok) {
+    alert("Failed to load posts");
+    return;
+  }
+
+  const posts = await res.json();
+  const postContainer = document.getElementById("postContainer");
+  postContainer.innerHTML = "";
+
+  if (Array.isArray(posts)) {
+    posts.forEach(renderPost);
+  } else {
+    console.error("Expected posts to be an array, got:", posts);
+  }
+} */
+
+async function loadPosts(category = '') {
+  // Construct the URL with optional category query parameter
+  const url = category ? `/api/posts?category=${encodeURIComponent(category)}` : '/api/posts';
+
+  const res = await fetch(url, { credentials: "include" });
   if (!res.ok) {
     alert("Failed to load posts");
     return;
@@ -192,10 +270,33 @@ async function loadPosts() {
 
 function renderPost(post) {
   const postContainer = document.getElementById("postContainer");
+  if (!postContainer) return;
 
   const postDiv = document.createElement("div");
-  postDiv.classList.add("post");
+  postDiv.classList.add("post-card");
   postDiv.id = `post-${post.id}`;
+  postDiv.onclick = () => openViewPostModal(post.id, post.title, post.content, post.author);
+
+  const postHeader = document.createElement("div");
+  postHeader.classList.add("post-header");
+
+  const avatar = document.createElement("div");
+  avatar.classList.add("post-avatar");
+  avatar.innerHTML = '<i class="fas fa-user"></i>';
+
+  const meta = document.createElement("div");
+  meta.classList.add("post-meta");
+
+  const author = document.createElement("div");
+  author.classList.add("post-author");
+  author.textContent = post.author || "Anonymous";
+
+  const cat = document.createElement("div");
+  cat.classList.add("post-category");
+  cat.textContent = post.category || "General";
+
+  const contentDiv = document.createElement("div");
+  contentDiv.classList.add("post-content");
 
   const title = document.createElement("h3");
   title.textContent = post.title;
@@ -203,64 +304,75 @@ function renderPost(post) {
   const content = document.createElement("p");
   content.textContent = post.content;
 
-  const author = document.createElement("p");
-  author.classList.add("author");
-  author.textContent = `By: ${post.author || "Anonymous"}`;
-
-  const commentForm = document.createElement("form");
-  commentForm.onsubmit = (e) => submitComment(e, post.id);
-
-  const commentInput = document.createElement("input");
-  commentInput.type = "text";
-  commentInput.placeholder = "Add a comment...";
-  commentInput.id = `comment-input-${post.id}`;
-
-  const commentBtn = document.createElement("button");
-  commentBtn.type = "submit";
-  commentBtn.textContent = "Comment";
-
-  commentForm.appendChild(commentInput);
-  commentForm.appendChild(commentBtn);
-
-  const commentsDiv = document.createElement("div");
-  commentsDiv.id = `comments-${post.id}`;
-
-  postDiv.appendChild(title);
-  postDiv.appendChild(author);
-  postDiv.appendChild(content);
-  postDiv.appendChild(commentForm);
-  postDiv.appendChild(commentsDiv);
-
+  meta.appendChild(author);
+  postHeader.appendChild(avatar);
+  postHeader.appendChild(meta);
+  contentDiv.appendChild(title);
+  contentDiv.appendChild(content);
+  contentDiv.appendChild(cat);
+  postDiv.appendChild(postHeader);
+  postDiv.appendChild(contentDiv);
   postContainer.appendChild(postDiv);
-  loadComments(post.id);
 }
 
 async function loadComments(postId) {
   const res = await fetch(`/api/comments?post_id=${postId}`, { credentials: "include" });
-  if (!res.ok) return;
+  if (!res.ok) {
+    console.error("Failed to fetch comments for post", postId);
+    return;
+  }
 
   const comments = await res.json();
-  const commentsContainer = document.getElementById(`comments-${postId}`);
-  commentsContainer.innerHTML = "";
-
   console.log("Comments for post", postId, ":", comments);
+
+  const commentsContainer = document.getElementById("view-post-comments");
+  if (!commentsContainer) {
+    console.error("Comments container not found");
+    return;
+  }
+
+  commentsContainer.innerHTML = "";
 
   if (Array.isArray(comments)) {
     comments.forEach(comment => {
-      const p = document.createElement("p");
-      p.textContent = comment.content;
-      commentsContainer.appendChild(p);
+      const commentDiv = document.createElement("div");
+      commentDiv.classList.add("comment");
+
+      const metaDiv = document.createElement("div");
+      metaDiv.classList.add("comment-meta");
+
+      const authorDiv = document.createElement("div");
+      authorDiv.classList.add("comment-author");
+      authorDiv.textContent = comment.nickname || "Anonymous";
+
+      const timeDiv = document.createElement("div");
+      timeDiv.classList.add("comment-time");
+      timeDiv.textContent = new Date(comment.created_at).toLocaleString();
+
+      metaDiv.appendChild(authorDiv);
+      metaDiv.appendChild(timeDiv);
+
+      const contentDiv = document.createElement("div");
+      contentDiv.classList.add("comment-content");
+      contentDiv.textContent = comment.content;
+
+      commentDiv.appendChild(metaDiv);
+      commentDiv.appendChild(contentDiv);
+      commentsContainer.appendChild(commentDiv);
     });
   } else {
     console.warn("Invalid comments array:", comments);
   }
 }
 
-async function submitComment(event, post_id) {
-  console.log("submitComment() called for postId:", post_id);
-
+async function submitComment(event, postId) {
   event.preventDefault();
-  const input = document.getElementById(`comment-input-${post_id}`);
+  const input = document.getElementById("view-comment-input");
+  if (!input) {
+    console.error("Comment input not found");
+    return;
+  }
+
   const content = input.value.trim();
   if (!content) return;
 
@@ -268,15 +380,40 @@ async function submitComment(event, post_id) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ post_id, content })
+    body: JSON.stringify({ post_id: postId, content })
   });
 
   if (res.ok) {
     input.value = "";
-    loadComments(post_id);
+    loadComments(postId);
   } else {
     alert("Failed to submit comment");
   }
+}
+
+async function loadUserList() {
+  try {
+    const res = await fetch("/api/userlist", { credentials: "include" });
+    console.log("Response status from /api/userlist:", res.status);
+    if (!res.ok) {
+      console.error("Failed to load user list, status:", res.status);
+      return;
+    }
+    const data = await res.json();
+    //console.log("User list data:", data);
+    allUsers = Array.isArray(data) ? data : data.Users || [];
+    //console.log("All users:", allUsers);
+  } catch (error) {
+    console.error("Error loading user list:", error);
+  }
+}
+
+async function getNicknameById(userId) {
+  if (!allUsers.length) {
+    await loadUserList();
+  }
+  const user = allUsers.find(u => u.id === userId);
+  return user ? user.nickname : "Unknown";
 }
 
 // --- WebSocket & Chat ---
@@ -292,8 +429,6 @@ function connectWebSocket(userID) {
     const data = JSON.parse(event.data);
 
     if (data.type === "online_users") {
-      //allUsers = data.allUsers;
-
       updateOnlineUsers(data.onlineUsers);
     } else if (data.type === "newMessage") {
       if (
@@ -306,8 +441,7 @@ function connectWebSocket(userID) {
           chatHistory[currentChatUserId] = [];
         }
         chatHistory[currentChatUserId].push(data.payload);
-        console.log("Calling renderMessages() from connectWebSocet()");
-        //renderMessages([data.payload], true);
+        console.log("Calling renderMessages() from connectWebSocket()");
         renderMessages([data.payload], false);
       } else {
         highlightUserInSidebar(data.payload.from_user);
@@ -328,7 +462,7 @@ async function fetchUsers() {
     console.log("Response from /api/userlist:", res);
 
     const users = await res.json();
-    console.log("temp:", users.Users);
+    //console.log("temp:", users.Users);
     return users.Users;
   } catch (err) {
     console.error("Error fetching user list:", err);
@@ -344,9 +478,9 @@ async function updateOnlineUsers(onlineUsers) {
 
   allUsers = await fetchUsers();
 
-  console.log("All users length:", allUsers.length);
+  //console.log("All users length:", allUsers.length);
   allUsers.forEach((user) => {
-    console.log("User:", user);
+    //console.log("User:", user);
     if (user.id !== currentUserID) {
       const listItem = document.createElement("li");
       const btn = document.createElement("button");
@@ -365,7 +499,7 @@ async function updateOnlineUsers(onlineUsers) {
       if (isOnline) {
         const dot = document.createElement("span");
         dot.className = "online-dot";
-        btn.prepend(dot); // or use btn.appendChild(dot) to move dot after text
+        btn.prepend(dot);
       }
 
       listItem.appendChild(btn);
@@ -394,7 +528,7 @@ function openChatWith(userId, nickname) {
   chatBox.innerHTML = "";
 
   isLoadingMessages = true;
-  console.log("Calling loadMessagesPage() normally from openchatwith()");
+  console.log("Calling loadMessagesPage() normally from openChatWith()");
   loadMessagesPage(userId, currentPage, false).finally(() => {
     scrollChatToBottom();
     isLoadingMessages = false;
@@ -418,7 +552,6 @@ function openChatWith(userId, nickname) {
 }
 
 async function loadMessagesPage(userId, page, append) {
-
   const offset = page * messagesPerPage;
   try {
     const res = await fetch(`/api/messages?from=${currentUserID}&to=${userId}&offset=${offset}`, {
@@ -469,10 +602,6 @@ function handleSendMessage() {
     chatHistory[currentChatUserId] = [];
   }
 
-  //chatHistory[currentChatUserId].push(newMessage);
-  //chatHistory[currentChatUserId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  //renderMessages([newMessage], true);
-
   messageInput.value = "";
   messageInput.focus();
 }
@@ -502,7 +631,7 @@ function renderMessages(messages, append = false) {
   });
 
   if (append) {
-    console.log("is this always 0?", chatBox.scrollTop)
+    console.log("is this always 0?", chatBox.scrollTop);
     const offset = chatBox.scrollHeight - chatBox.scrollTop;
     chatBox.innerHTML = "";
     elements.forEach((el) => chatBox.appendChild(el));
@@ -525,11 +654,6 @@ function debounce(fn, delay) {
     clearTimeout(timeout);
     timeout = setTimeout(() => fn.apply(this, args), delay);
   };
-}
-
-function getNicknameById(userId) {
-  const user = onlineUsers.find(u => u.id === userId);
-  return user ? user.nickname : "Unknown";
 }
 
 function highlightUserInSidebar(userId) {

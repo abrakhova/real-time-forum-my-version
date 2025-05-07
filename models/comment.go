@@ -6,4 +6,5 @@ type Comment struct {
 	UserID    int    `json:"user_id"`
 	Content   string `json:"content"`
 	CreatedAt string `json:"created_at"`
+	Nickname  string `json:"nickname"`
 }
