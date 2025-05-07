@@ -23,6 +23,7 @@ func main() {
 	fs := http.FileServer(http.Dir("."))
 	mux.Handle("/chat.js", fs)
 	mux.Handle("/main.js", fs)
+	mux.Handle("/post.js", fs)
 
 	// API routes
 	mux.HandleFunc("/api/register", handlers.RegisterUser)
