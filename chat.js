@@ -24,10 +24,9 @@ function connectWebSocket(userID) {
           }
           chatHistory[currentChatUserId].push(data.payload);
           console.log("Calling renderMessages() from connectWebSocket()");
-          renderMessages([data.payload], false);
-        } else {
-          highlightUserInSidebar(data.payload.from_user);
-        }
+          renderMessages([data.payload], true);
+        } 
+        highlightUserInSidebar(data.payload.from_user);
       }
     };
   

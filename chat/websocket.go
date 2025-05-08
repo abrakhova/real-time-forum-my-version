@@ -121,6 +121,9 @@ func readPump(c *Client) {
 
 		// Save to DB
 		database.SaveMessage(chatMsg.FromUserID, chatMsg.ToUserID, chatMsg.Content)
+		broadcastOnlineUsers()
+
+		time.Sleep(50 * time.Millisecond)
 
 		// Wrap the message into an envelope for sending
 		envelope := struct {
@@ -145,7 +148,7 @@ func readPump(c *Client) {
 			sender.Send <- encoded
 		}
 		clientsMu.Unlock()
-		broadcastOnlineUsers()
+
 	}
 }
 
