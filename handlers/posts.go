@@ -40,40 +40,6 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(post)
 }
 
-/* func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("GetPostsHandler called")
-	w.Header().Set("Content-Type", "application/json") // Add this
-
-	// Always initialize the slice to avoid returning null
-	posts := []models.PostResponse{}
-
-	rows, err := database.DB.Query(`
-		SELECT posts.id, posts.title, posts.content, posts.created_at, posts.category, users.nickname
-		FROM posts
-		INNER JOIN users ON posts.user_id = users.id
-		ORDER BY posts.created_at DESC
-	`)
-	if err != nil {
-		http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var p models.PostResponse
-		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Category, &p.Author)
-		if err != nil {
-			http.Error(w, "Failed to scan post", http.StatusInternalServerError)
-			log.Println("Error scanning post:", err)
-			continue // Skip bad row, but continue sending others
-		}
-		posts = append(posts, p)
-	}
-
-	// Now it's always either [] or [items], never null
-	json.NewEncoder(w).Encode(posts)
-} */
-
 func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("GetPostsHandler called")
 	w.Header().Set("Content-Type", "application/json")

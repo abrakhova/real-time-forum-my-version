@@ -69,8 +69,6 @@ func ClearSession(w http.ResponseWriter) {
 		MaxAge:   -1,
 	})
 
-	// Also remove from session map if exists
-	// You could enhance this by checking if the cookie existed
 }
 
 func IsAuthenticated(r *http.Request) bool {
