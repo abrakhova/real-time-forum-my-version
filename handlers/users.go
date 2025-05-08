@@ -38,7 +38,7 @@ GROUP BY
     u.id
 ORDER BY 
     MAX(m.created_at) DESC NULLS LAST, 
-    u.nickname ASC;`, userID, userID, userID)
+    LOWER(u.nickname) ASC;`, userID, userID, userID)
 
 	if err != nil {
 		log.Println("DB error fetching users:", err) // Add this

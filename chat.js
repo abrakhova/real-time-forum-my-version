@@ -24,7 +24,8 @@ function connectWebSocket(userID) {
           }
           chatHistory[currentChatUserId].push(data.payload);
           console.log("Calling renderMessages() from connectWebSocket()");
-          renderMessages([data.payload], true);
+          //renderMessages([data.payload], true);
+          renderMessages(chatHistory[currentChatUserId], true);
         } 
         highlightUserInSidebar(data.payload.from_user);
       }
@@ -40,10 +41,10 @@ function connectWebSocket(userID) {
     try {
       const res = await fetch(`http://${window.location.host}/api/userlist`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch user list");
-      console.log("Response from /api/userlist:", res);
+     //console.log("Response from /api/userlist:", res);
   
       const users = await res.json();
-      //console.log("temp:", users.Users);
+      //console.log("fetched users:", users.Users);
       return users.Users;
     } catch (err) {
       console.error("Error fetching user list:", err);
@@ -133,7 +134,12 @@ function connectWebSocket(userID) {
   }
   
   async function loadMessagesPage(userId, page, append) {
-    const offset = page * messagesPerPage;
+    let offset = page * messagesPerPage;
+
+    // prevent tryin to load older mesages than there are
+    //if (!chatHistory[userId] || chatHistory[userId].length < 10) offset = 0;
+
+
     try {
       const res = await fetch(`/api/messages?from=${currentUserID}&to=${userId}&offset=${offset}`, {
         credentials: "include"
@@ -141,9 +147,9 @@ function connectWebSocket(userID) {
       if (!res.ok) throw new Error("Failed to fetch messages");
       const messages = await res.json();
   
-      if (!chatHistory[userId]) {
-        chatHistory[userId] = [];
-      }
+      //if (!chatHistory[userId] || offset === 0) {
+      //  chatHistory[userId] = [];
+      //}
   
       if (messages) {
         if (append) {
@@ -153,9 +159,13 @@ function connectWebSocket(userID) {
         }
   
         chatHistory[userId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        console.log("rendering messages from loadMessagesPage()");
+        console.log("rendering", messages.length, "messages from loadMessagesPage()");
+       // console.log("current, other and offset:", currentUserID, userId, offset);
         renderMessages(chatHistory[userId], append);
-      }
+      } /* else {
+        
+        console.log("No messages found at loadMessagesPage()", currentUserID, userId, offset);
+      } */
     } catch (err) {
       console.error("Failed to load messages:", err);
     }
@@ -186,12 +196,30 @@ function connectWebSocket(userID) {
     messageInput.value = "";
     messageInput.focus();
   }
+/* 
+  function removeDuplicates(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return [];
   
+    const result = [arr[0]];
+  
+    for (let i = 1; i < arr.length; i++) {
+      const prev = JSON.stringify(arr[i - 1]);
+      const curr = JSON.stringify(arr[i]);
+      if (prev !== curr) {
+        result.push(arr[i]);
+      }
+    }
+  
+    return result;
+  }
+
+   */
   function renderMessages(messages, append = false) {
     const chatBox = document.getElementById("chatMessages");
     if (!chatBox) return;
   
     messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    //messages = removeDuplicates(messages);
   
     const elements = messages.map((msg) => {
       const div = document.createElement("div");
@@ -212,7 +240,6 @@ function connectWebSocket(userID) {
     });
   
     if (append) {
-      console.log("is this always 0?", chatBox.scrollTop);
       const offset = chatBox.scrollHeight - chatBox.scrollTop;
       chatBox.innerHTML = "";
       elements.forEach((el) => chatBox.appendChild(el));
