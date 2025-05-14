@@ -143,19 +143,33 @@
     </div>
   </div>
 
-  <!-- Chat Modal -->
-  <div id="chatModal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <span class="close-button" onclick="closeChatModal()">&times;</span>
-      <h3>Private Chat with <span id="chatWith"></span></h3>
-      <div id="chatMessages"
-        style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
-      <div id="loadingOlder" style="display: none; text-align: center; font-size: 0.8rem;">Loading older messages...
-      </div>
-      <input type="text" id="chatInput" placeholder="Type a message..." style="width: 70%;" />
-      <button onclick="handleSendMessage()">Send</button>
+<!-- Chat Modal -->
+<div id="chatModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <span class="close-button" onclick="closeChatModal()">×</span>
+    <h3>Private Chat with <span id="chatWith"></span></h3>
+
+    <!-- messages -->
+    <div id="chatMessages"
+         style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;">
     </div>
+
+    <!-- loading older -->
+    <div id="loadingOlder" style="display: none; text-align: center; font-size: 0.8rem;">
+      Loading older messages...
+    </div>
+
+    <!-- typing indicator -->
+    <div id="typing-indicator" class="typing-indicator" style="display: none;">
+      <span id="typing-text"></span>
+      <div class="dot-typing"><div></div></div>
+    </div>
+
+    <!-- input + send -->
+    <input type="text" id="chatInput" placeholder="Type a message..." style="width: 70%;" />
+    <button onclick="handleSendMessage()">Send</button>
   </div>
+</div>
 
   <!-- Hidden inputs for JS access -->
   <!-- <input type="hidden" id="currentUserID" value="{{.CurrentUserID}}">

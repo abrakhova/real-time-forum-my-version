@@ -1,4 +1,5 @@
 // --- WebSocket & Chat ---
+let typingTimeout = null;
 
 function connectWebSocket(userID) {
     socket = new WebSocket("ws://" + window.location.host + "/ws?user=" + userID);
@@ -24,10 +25,23 @@ function connectWebSocket(userID) {
           }
           chatHistory[currentChatUserId].push(data.payload);
           console.log("Calling renderMessages() from connectWebSocket()");
-          //renderMessages([data.payload], true);
           renderMessages(chatHistory[currentChatUserId], true);
         } 
         highlightUserInSidebar(data.payload.from_user);
+      } else if (data.type === "typing") {
+        const typingIndicator = document.getElementById("typing-indicator");
+        const typingText = document.getElementById("typing-text");
+        if (typingIndicator && typingText && data.from_user === currentChatUserId) {
+          (async () => {
+            try {
+              const nickname = await getNicknameById(data.from_user);
+              typingText.textContent = `${nickname} is typing`;
+              typingIndicator.style.display = data.isTyping ? "flex" : "none";
+            } catch (err) {
+              console.error("Failed to get nickname:", err);
+            }
+          })();
+        }
       }
     };
   
@@ -35,24 +49,21 @@ function connectWebSocket(userID) {
       console.log("WebSocket connection closed");
       document.getElementById("chatModal").style.display = "none";
     };
-  }
-  
-  async function fetchUsers() {
+}
+
+async function fetchUsers() {
     try {
       const res = await fetch(`http://${window.location.host}/api/userlist`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch user list");
-     //console.log("Response from /api/userlist:", res);
-  
       const users = await res.json();
-      //console.log("fetched users:", users.Users);
       return users.Users;
     } catch (err) {
       console.error("Error fetching user list:", err);
       return [];
     }
-  }
-  
-  async function updateOnlineUsers(onlineUsers) {
+}
+
+async function updateOnlineUsers(onlineUsers) {
     const container = document.getElementById("onlineUsers");
     container.innerHTML = "";
   
@@ -60,9 +71,7 @@ function connectWebSocket(userID) {
   
     allUsers = await fetchUsers();
   
-    //console.log("All users length:", allUsers.length);
     allUsers.forEach((user) => {
-      //console.log("User:", user);
       if (user.id !== currentUserID) {
         const listItem = document.createElement("li");
         const btn = document.createElement("button");
@@ -74,10 +83,8 @@ function connectWebSocket(userID) {
           clearNotification(user.id);
         };
   
-        // Check if the user is online
         const isOnline = onlineUsers.some(u => u.id === user.id);
   
-        // Create green dot if online
         if (isOnline) {
           const dot = document.createElement("span");
           dot.className = "online-dot";
@@ -90,9 +97,9 @@ function connectWebSocket(userID) {
     });
   
     container.appendChild(userList);
-  }
-  
-  function openChatWith(userId, nickname) {
+}
+
+function openChatWith(userId, nickname) {
     currentChatUserId = userId;
     currentPage = 0;
   
@@ -131,14 +138,15 @@ function connectWebSocket(userID) {
         });
       }
     }, 300);
-  }
-  
-  async function loadMessagesPage(userId, page, append) {
+
+    const typingIndicator = document.getElementById("typing-indicator");
+    if (typingIndicator) {
+      typingIndicator.style.display = "none";
+    }
+}
+
+async function loadMessagesPage(userId, page, append) {
     let offset = page * messagesPerPage;
-
-    // prevent tryin to load older mesages than there are
-    //if (!chatHistory[userId] || chatHistory[userId].length < 10) offset = 0;
-
 
     try {
       const res = await fetch(`/api/messages?from=${currentUserID}&to=${userId}&offset=${offset}`, {
@@ -146,10 +154,6 @@ function connectWebSocket(userID) {
       });
       if (!res.ok) throw new Error("Failed to fetch messages");
       const messages = await res.json();
-  
-      //if (!chatHistory[userId] || offset === 0) {
-      //  chatHistory[userId] = [];
-      //}
   
       if (messages) {
         if (append) {
@@ -160,24 +164,21 @@ function connectWebSocket(userID) {
   
         chatHistory[userId].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         console.log("rendering", messages.length, "messages from loadMessagesPage()");
-       // console.log("current, other and offset:", currentUserID, userId, offset);
         renderMessages(chatHistory[userId], append);
-      } /* else {
-        
-        console.log("No messages found at loadMessagesPage()", currentUserID, userId, offset);
-      } */
+      }
     } catch (err) {
       console.error("Failed to load messages:", err);
     }
-  }
-  
-  function handleSendMessage() {
+}
+
+function handleSendMessage() {
     const messageInput = document.getElementById("chatInput");
     const messageContent = messageInput.value.trim();
   
     if (!messageContent || !currentChatUserId) return;
   
     const newMessage = {
+      type: "newMessage",
       from_user: currentUserID,
       from_user_nickname: window.currentUserNickname,
       to_user: currentChatUserId,
@@ -195,31 +196,14 @@ function connectWebSocket(userID) {
   
     messageInput.value = "";
     messageInput.focus();
-  }
-/* 
-  function removeDuplicates(arr) {
-    if (!Array.isArray(arr) || arr.length === 0) return [];
-  
-    const result = [arr[0]];
-  
-    for (let i = 1; i < arr.length; i++) {
-      const prev = JSON.stringify(arr[i - 1]);
-      const curr = JSON.stringify(arr[i]);
-      if (prev !== curr) {
-        result.push(arr[i]);
-      }
-    }
-  
-    return result;
-  }
+    stopTyping();
+}
 
-   */
-  function renderMessages(messages, append = false) {
+function renderMessages(messages, append = false) {
     const chatBox = document.getElementById("chatMessages");
     if (!chatBox) return;
   
     messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    //messages = removeDuplicates(messages);
   
     const elements = messages.map((msg) => {
       const div = document.createElement("div");
@@ -249,35 +233,74 @@ function connectWebSocket(userID) {
       elements.forEach((el) => chatBox.appendChild(el));
       scrollChatToBottom();
     }
-  }
-  
-  function scrollChatToBottom() {
+}
+
+function scrollChatToBottom() {
     const chatMessages = document.getElementById("chatMessages");
     chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-  
-  function debounce(fn, delay) {
+}
+
+function debounce(fn, delay) {
     let timeout;
     return function (...args) {
       clearTimeout(timeout);
       timeout = setTimeout(() => fn.apply(this, args), delay);
     };
-  }
-  
-  function highlightUserInSidebar(userId) {
+}
+
+function highlightUserInSidebar(userId) {
     const userBtn = document.getElementById(`chat-user-${userId}`);
     if (userBtn) {
       userBtn.classList.add("highlight");
     }
-  }
-  
-  function clearNotification(userId) {
+}
+
+function clearNotification(userId) {
     const userBtn = document.getElementById(`chat-user-${userId}`);
     if (userBtn) {
       userBtn.classList.remove("highlight");
     }
-  }
-  
-  function closeChatModal() {
+}
+
+function closeChatModal() {
     document.getElementById("chatModal").style.display = "none";
-  }
+    stopTyping();
+}
+
+function handleTyping() {
+    if (!currentChatUserId || !socket || socket.readyState !== WebSocket.OPEN) return;
+
+    socket.send(JSON.stringify({
+      type: "typing",
+      to_user: currentChatUserId,
+      isTyping: true
+    }));
+
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+
+    typingTimeout = setTimeout(() => {
+      socket.send(JSON.stringify({
+        type: "typing",
+        to_user: currentChatUserId,
+        isTyping: false
+      }));
+    }, 1000);
+}
+
+function stopTyping() {
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+    if (currentChatUserId && socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: "typing",
+        to_user: currentChatUserId,
+        isTyping: false
+      }));
+    }
+}
+
+document.getElementById("chatInput").addEventListener("input", handleTyping);
+document.getElementById("chatInput").addEventListener("blur", stopTyping);
